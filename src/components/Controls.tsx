@@ -1,203 +1,154 @@
-import React from 'react'
-import {
-  RotateCcw,
-  Undo2,
-  ArrowUpDown,
-  Volume2,
-  VolumeX,
-  Bot,
-  Users,
-  Palette,
-} from 'lucide-react'
+import { ArrowRight, Bot, Users, Check, Sparkles } from 'lucide-react'
 import type { GameMode, BotDifficulty, BoardTheme, Color } from '../types/chess'
 import { BOARD_THEMES } from '../utils/themes'
+import { ChessPieceIcon } from './ChessPieceIcon'
 
 interface ControlsProps {
   gameMode: GameMode
   botDifficulty: BotDifficulty
   playerColor: Color
   currentTheme: BoardTheme
-  soundEnabled: boolean
-  canUndo: boolean
   onNewGame: () => void
-  onUndo: () => void
-  onFlipBoard: () => void
-  onToggleSound: () => void
   onSelectTheme: (theme: BoardTheme) => void
   onSelectGameMode: (mode: GameMode) => void
-  onSelectBotDifficulty: (diff: BotDifficulty) => void
+  onSelectBotDifficulty: (difficulty: BotDifficulty) => void
   onSelectPlayerColor: (color: Color) => void
 }
 
-export const Controls: React.FC<ControlsProps> = ({
+export const DIFFICULTY_LABELS = { easy: 'Thư giãn', medium: 'Cân bằng', hard: 'Thử thách' }
+
+export function Controls({
   gameMode,
   botDifficulty,
   playerColor,
   currentTheme,
-  soundEnabled,
-  canUndo,
   onNewGame,
-  onUndo,
-  onFlipBoard,
-  onToggleSound,
   onSelectTheme,
   onSelectGameMode,
   onSelectBotDifficulty,
   onSelectPlayerColor,
-}) => {
+}: ControlsProps) {
   return (
-    <div className="bg-zinc-900/80 rounded-xl border border-zinc-800/80 p-4 shadow-lg space-y-4">
-      {/* Mode Selector Tabs */}
-      <div className="grid grid-cols-2 p-1 bg-zinc-950/60 rounded-lg border border-zinc-800/60">
+    <section className="panel setup-panel" aria-labelledby="setup-heading">
+      <div className="panel-heading">
+        <h2 id="setup-heading">Ván cờ của bạn</h2>
+        <span className="eyebrow">TÙY CHỈNH</span>
+      </div>
+      <div className="mode-switch" role="group" aria-label="Chế độ chơi">
         <button
-          onClick={() => onSelectGameMode('pass-and-play')}
-          className={`flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-xs font-semibold transition-all ${
-            gameMode === 'pass-and-play'
-              ? 'bg-zinc-800 text-amber-400 shadow'
-              : 'text-zinc-400 hover:text-zinc-200'
-          }`}
-        >
-          <Users className="w-4 h-4" />
-          <span>Pass & Play</span>
-        </button>
-
-        <button
+          aria-pressed={gameMode === 'vs-bot'}
+          className={gameMode === 'vs-bot' ? 'active' : ''}
           onClick={() => onSelectGameMode('vs-bot')}
-          className={`flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-xs font-semibold transition-all ${
-            gameMode === 'vs-bot'
-              ? 'bg-zinc-800 text-amber-400 shadow'
-              : 'text-zinc-400 hover:text-zinc-200'
-          }`}
         >
-          <Bot className="w-4 h-4" />
-          <span>Đấu Với Máy</span>
+          <Bot size={17} />
+          Với máy
+        </button>
+        <button
+          aria-pressed={gameMode === 'pass-and-play'}
+          className={gameMode === 'pass-and-play' ? 'active' : ''}
+          onClick={() => onSelectGameMode('pass-and-play')}
+        >
+          <Users size={17} />
+          Cùng bạn
         </button>
       </div>
-
-      {/* Bot Options (Visible only in vs-bot mode) */}
-      {gameMode === 'vs-bot' && (
-        <div className="p-3 bg-zinc-950/40 rounded-lg border border-zinc-800/50 space-y-3">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-zinc-400 font-medium">Độ khó:</span>
-            <div className="flex space-x-1.5">
-              {(['easy', 'medium', 'hard'] as BotDifficulty[]).map((d) => (
+      {gameMode === 'vs-bot' ? (
+        <>
+          <div className="opponent-card">
+            <div className="opponent-art">
+              <ChessPieceIcon type="n" color="w" />
+              <span>✦</span>
+            </div>
+            <div>
+              <strong>Gambit Bot</strong>
+              <p>Một đối thủ. Vô vàn khả năng.</p>
+            </div>
+            <Sparkles size={16} className="opponent-spark" />
+          </div>
+          <div className="setting-row">
+            <span>Độ khó</span>
+            <span className="setting-hint">
+              {botDifficulty === 'easy'
+                ? 'Khởi động nhẹ nhàng'
+                : botDifficulty === 'medium'
+                  ? 'Vừa sức, đủ thú vị'
+                  : 'Sẵn sàng bứt phá'}
+            </span>
+          </div>
+          <div className="difficulty-switch" role="group" aria-label="Độ khó">
+            {(['easy', 'medium', 'hard'] as const).map((difficulty, index) => (
+              <button
+                key={difficulty}
+                aria-pressed={botDifficulty === difficulty}
+                className={botDifficulty === difficulty ? 'active' : ''}
+                onClick={() => onSelectBotDifficulty(difficulty)}
+              >
+                <span className="level-bars" aria-hidden="true">
+                  {[0, 1, 2].map((bar) => (
+                    <i key={bar} className={bar <= index ? 'filled' : ''} />
+                  ))}
+                </span>
+                {DIFFICULTY_LABELS[difficulty]}
+              </button>
+            ))}
+          </div>
+          <div className="color-setting">
+            <span>Bạn cầm quân</span>
+            <div role="group" aria-label="Màu quân của bạn">
+              {(['w', 'b'] as const).map((color) => (
                 <button
-                  key={d}
-                  onClick={() => onSelectBotDifficulty(d)}
-                  className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
-                    botDifficulty === d
-                      ? 'bg-amber-500 text-zinc-950 font-semibold'
-                      : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
-                  }`}
+                  key={color}
+                  aria-pressed={playerColor === color}
+                  className={playerColor === color ? 'active' : ''}
+                  onClick={() => onSelectPlayerColor(color)}
                 >
-                  {d === 'easy' ? 'Dễ' : d === 'medium' ? 'Vừa' : 'Khó'}
+                  <span className={`color-dot ${color}`} />
+                  {color === 'w' ? 'Trắng' : 'Đen'}
                 </button>
               ))}
             </div>
           </div>
-
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-zinc-400 font-medium">Bạn cầm quân:</span>
-            <div className="flex space-x-1.5">
-              <button
-                onClick={() => onSelectPlayerColor('w')}
-                className={`flex items-center space-x-1.5 px-2.5 py-1 rounded font-medium transition-colors ${
-                  playerColor === 'w'
-                    ? 'bg-zinc-200 text-zinc-950 font-bold'
-                    : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <div className="w-2.5 h-2.5 rounded-full bg-white border border-zinc-400" />
-                <span>Trắng</span>
-              </button>
-              <button
-                onClick={() => onSelectPlayerColor('b')}
-                className={`flex items-center space-x-1.5 px-2.5 py-1 rounded font-medium transition-colors ${
-                  playerColor === 'b'
-                    ? 'bg-zinc-200 text-zinc-950 font-bold'
-                    : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <div className="w-2.5 h-2.5 rounded-full bg-zinc-900 border border-zinc-600" />
-                <span>Đen</span>
-              </button>
-            </div>
-          </div>
+        </>
+      ) : (
+        <div className="friends-description">
+          <Users size={31} />
+          <strong>Ngồi cạnh nhau. Cùng đấu trí.</strong>
+          <p>Hai người, một bàn cờ. Thay phiên đi và lật bàn cờ bất cứ lúc nào.</p>
         </div>
       )}
-
-      {/* Main Action Buttons */}
-      <div className="grid grid-cols-4 gap-2">
-        <button
-          onClick={onUndo}
-          disabled={!canUndo}
-          title="Đi lại nước cờ"
-          className="flex flex-col items-center justify-center p-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-750 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-200 text-xs font-medium border border-zinc-700/50 active:scale-95 transition-all"
-        >
-          <Undo2 className="w-4 h-4 mb-1" />
-          <span>Đi lại</span>
-        </button>
-
-        <button
-          onClick={onFlipBoard}
-          title="Đổi chiều bàn cờ"
-          className="flex flex-col items-center justify-center p-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-750 text-zinc-200 text-xs font-medium border border-zinc-700/50 active:scale-95 transition-all"
-        >
-          <ArrowUpDown className="w-4 h-4 mb-1" />
-          <span>Lật cờ</span>
-        </button>
-
-        <button
-          onClick={onToggleSound}
-          title={soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
-          className="flex flex-col items-center justify-center p-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-750 text-zinc-200 text-xs font-medium border border-zinc-700/50 active:scale-95 transition-all"
-        >
-          {soundEnabled ? (
-            <Volume2 className="w-4 h-4 mb-1 text-amber-400" />
-          ) : (
-            <VolumeX className="w-4 h-4 mb-1 text-zinc-500" />
-          )}
-          <span>Âm thanh</span>
-        </button>
-
-        <button
-          onClick={onNewGame}
-          title="Bắt đầu ván mới"
-          className="flex flex-col items-center justify-center p-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-semibold border border-amber-500/30 active:scale-95 transition-all"
-        >
-          <RotateCcw className="w-4 h-4 mb-1" />
-          <span>Ván mới</span>
-        </button>
-      </div>
-
-      {/* Theme Picker */}
-      <div className="pt-2 border-t border-zinc-800 flex items-center justify-between">
-        <div className="flex items-center space-x-1.5 text-xs text-zinc-400">
-          <Palette className="w-3.5 h-3.5" />
-          <span>Màu bàn cờ:</span>
+      <div className="theme-setting" id="appearance">
+        <div className="setting-row">
+          <span>Màu bàn cờ</span>
+          <span className="setting-hint">{BOARD_THEMES[currentTheme].name}</span>
         </div>
-        <div className="flex items-center space-x-1.5">
-          {(Object.keys(BOARD_THEMES) as BoardTheme[]).map((themeKey) => {
-            const t = BOARD_THEMES[themeKey]
-            const isSelected = currentTheme === themeKey
-            return (
-              <button
-                key={themeKey}
-                onClick={() => onSelectTheme(themeKey)}
-                title={t.name}
-                className={`w-5 h-5 rounded-full overflow-hidden border-2 transition-transform ${
-                  isSelected ? 'border-amber-400 scale-110 shadow' : 'border-zinc-700 hover:scale-105'
-                }`}
-              >
-                <div className="w-full h-full flex">
-                  <div className="w-1/2 h-full" style={{ backgroundColor: t.light }} />
-                  <div className="w-1/2 h-full" style={{ backgroundColor: t.dark }} />
-                </div>
-              </button>
-            )
-          })}
+        <div className="theme-options" role="group" aria-label="Màu bàn cờ">
+          {(Object.keys(BOARD_THEMES) as BoardTheme[]).map((theme) => (
+            <button
+              key={theme}
+              title={BOARD_THEMES[theme].name}
+              aria-label={BOARD_THEMES[theme].name}
+              aria-pressed={currentTheme === theme}
+              className={`theme-swatch ${currentTheme === theme ? 'active' : ''}`}
+              onClick={() => onSelectTheme(theme)}
+            >
+              <span
+                style={{
+                  background: `conic-gradient(${BOARD_THEMES[theme].dark} 25%, ${BOARD_THEMES[theme].light} 0 50%, ${BOARD_THEMES[theme].dark} 0 75%, ${BOARD_THEMES[theme].light} 0)`,
+                }}
+              />
+              {currentTheme === theme && <Check size={13} />}
+            </button>
+          ))}
         </div>
       </div>
-    </div>
+      <button className="primary-button new-game-button" onClick={onNewGame}>
+        Bắt đầu ván mới
+        <ArrowRight size={18} />
+      </button>
+      <p className="setup-note">
+        <span />
+        Chơi tự do · Không giới hạn thời gian
+      </p>
+    </section>
   )
 }

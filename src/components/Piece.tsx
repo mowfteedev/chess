@@ -1,55 +1,35 @@
-import React from 'react'
+import type { DragEvent } from 'react'
 import type { PieceType, Color, Square } from '../types/chess'
+import { ChessPieceIcon } from './ChessPieceIcon'
 
-interface PieceProps {
-  type: PieceType
-  color: Color
-  square: Square
-  isDraggable?: boolean
-}
-
-export const Piece: React.FC<PieceProps> = ({
+export function Piece({
   type,
   color,
   square,
   isDraggable = true,
-}) => {
-  const code = `${color}${type.toUpperCase()}`
-  const src = `./pieces/${code}.png`
-
-  const handleDragStart = (e: React.DragEvent) => {
+}: {
+  type: PieceType
+  color: Color
+  square: Square
+  isDraggable?: boolean
+}) {
+  const handleDragStart = (event: DragEvent) => {
     if (!isDraggable) {
-      e.preventDefault()
+      event.preventDefault()
       return
     }
-    e.dataTransfer.setData('text/plain', square)
-    e.dataTransfer.effectAllowed = 'move'
-
-    // Add dragging styling to ghost
-    const target = e.currentTarget as HTMLElement
-    target.style.opacity = '0.5'
+    event.dataTransfer.setData('text/plain', square)
+    event.dataTransfer.effectAllowed = 'move'
+    event.currentTarget.classList.add('is-dragging')
   }
-
-  const handleDragEnd = (e: React.DragEvent) => {
-    const target = e.currentTarget as HTMLElement
-    target.style.opacity = '1'
-  }
-
   return (
-    <div
+    <span
       draggable={isDraggable}
       onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      className={`w-full h-full flex items-center justify-center p-1 cursor-grab active:cursor-grabbing transition-transform duration-100 select-none ${
-        isDraggable ? 'hover:scale-105' : ''
-      }`}
+      onDragEnd={(event) => event.currentTarget.classList.remove('is-dragging')}
+      className={`board-piece ${isDraggable ? 'draggable' : ''}`}
     >
-      <img
-        src={src}
-        alt={`${color === 'w' ? 'White' : 'Black'} ${type}`}
-        className="w-full h-full object-contain pointer-events-none drop-shadow-sm"
-        loading="eager"
-      />
-    </div>
+      <ChessPieceIcon type={type} color={color} />
+    </span>
   )
 }

@@ -1,68 +1,69 @@
-import React from 'react'
+import { Bot, UserRound } from 'lucide-react'
 import type { CapturedPieceGroup } from '../types/chess'
+import { ChessPieceIcon, PIECE_NAMES } from './ChessPieceIcon'
 
 interface CapturedPiecesProps {
   captured: CapturedPieceGroup[]
-  materialAdvantage?: number // > 0: current side has advantage
+  materialAdvantage: number
   playerName: string
+  subtitle: string
   isTurn: boolean
+  isBot?: boolean
+  isThinking?: boolean
   color: 'w' | 'b'
 }
 
-export const CapturedPieces: React.FC<CapturedPiecesProps> = ({
+export function CapturedPieces({
   captured,
   materialAdvantage,
   playerName,
+  subtitle,
   isTurn,
+  isBot,
+  isThinking,
   color,
-}) => {
+}: CapturedPiecesProps) {
   return (
-    <div
-      className={`flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
-        isTurn
-          ? 'bg-zinc-800/90 border border-amber-500/40 shadow-sm'
-          : 'bg-zinc-900/60 border border-zinc-800/40'
-      }`}
-    >
-      <div className="flex items-center space-x-2.5">
-        <div
-          className={`w-3.5 h-3.5 rounded-full border ${
-            color === 'w' ? 'bg-zinc-100 border-zinc-400' : 'bg-zinc-900 border-zinc-600'
-          }`}
-        />
-        <span className="font-semibold text-sm text-zinc-200">{playerName}</span>
-        {isTurn && (
-          <span className="text-[11px] font-medium bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30">
-            Lượt đi
-          </span>
-        )}
+    <div className={`player-bar ${isTurn ? 'active-player' : ''}`}>
+      <div className={`player-avatar ${isBot ? 'bot-avatar' : ''}`}>
+        {isBot ? <Bot size={23} /> : <UserRound size={22} />}
+        <span className={`color-dot ${color}`} />
       </div>
-
-      <div className="flex items-center space-x-1">
-        {captured.map((group) => {
-          const code = `${group.color}${group.type.toUpperCase()}`
-          return (
-            <div key={group.type} className="flex items-center relative group">
-              <img
-                src={`./pieces/${code}.png`}
-                alt={group.type}
-                className="w-5 h-5 sm:w-6 sm:h-6 object-contain"
-              />
-              {group.count > 1 && (
-                <span className="text-[10px] font-bold text-zinc-400 ml-0.5">
-                  ×{group.count}
-                </span>
-              )}
-            </div>
-          )
-        })}
-
-        {materialAdvantage && materialAdvantage > 0 ? (
-          <span className="text-xs font-bold text-emerald-400 ml-2 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800/40">
-            +{materialAdvantage}
-          </span>
-        ) : null}
+      <div className="player-details">
+        <strong>
+          {playerName}
+          {isBot && <span className="mini-label">BOT</span>}
+        </strong>
+        <span>{isThinking ? 'Đang tìm nước đi tốt nhất…' : subtitle}</span>
       </div>
+      <div className="captured-pieces" aria-label="Quân đã bắt">
+        {captured.map((group) => (
+          <span
+            key={group.type}
+            title={`${group.count} ${PIECE_NAMES[group.type]} ${group.color === 'w' ? 'trắng' : 'đen'}`}
+          >
+            <ChessPieceIcon type={group.type} color={group.color} />
+            {group.count > 1 && <small>×{group.count}</small>}
+          </span>
+        ))}
+        {materialAdvantage > 0 && <b>+{materialAdvantage}</b>}
+      </div>
+      {isTurn && (
+        <span className="turn-indicator">
+          {isThinking ? (
+            <span className="thinking-dots">
+              <i />
+              <i />
+              <i />
+            </span>
+          ) : (
+            <>
+              <i />
+              Lượt đi
+            </>
+          )}
+        </span>
+      )}
     </div>
   )
 }

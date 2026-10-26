@@ -1,78 +1,72 @@
-import React, { useEffect } from 'react'
-import confetti from 'canvas-confetti'
+import { useEffect } from 'react'
+import { Crown, Handshake, ArrowRight } from 'lucide-react'
 import type { Color } from '../types/chess'
+import { Dialog } from './Dialog'
 
 interface GameOverModalProps {
   isCheckmate: boolean
   isStalemate: boolean
   isThreefold: boolean
   isInsufficientMaterial: boolean
-  isDraw: boolean
   currentTurn: Color
   onNewGame: () => void
+  onReview: () => void
 }
 
-export const GameOverModal: React.FC<GameOverModalProps> = ({
+export function GameOverModal({
   isCheckmate,
   isStalemate,
   isThreefold,
   isInsufficientMaterial,
   currentTurn,
   onNewGame,
-}) => {
-  const winner = currentTurn === 'w' ? 'Đen' : 'Trắng'
-
+  onReview,
+}: GameOverModalProps) {
   useEffect(() => {
-    if (isCheckmate) {
-      try {
-        confetti({
-          particleCount: 80,
-          spread: 70,
-          origin: { y: 0.6 },
-        })
-      } catch {
-        // Fallback gracefully
-      }
+    if (!isCheckmate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    let active = true
+    void import('canvas-confetti')
+      .then(({ default: confetti }) => {
+        if (active)
+          confetti({
+            particleCount: 70,
+            spread: 75,
+            colors: ['#b6dca0', '#f2dfbc', '#6b9e82'],
+            origin: { y: 0.6 },
+            disableForReducedMotion: true,
+          })
+      })
+      .catch(() => {
+        /* Celebration is optional. */
+      })
+    return () => {
+      active = false
     }
   }, [isCheckmate])
-
-  let title = 'Ván đấu kết thúc'
-  let subtitle = ''
-
-  if (isCheckmate) {
-    title = `Bên ${winner} Chiến Thắng! 🎉`
-    subtitle = `Chiếu bí vua đối phương hoàn hảo.`
-  } else if (isStalemate) {
-    title = 'Hòa Cờ (Stalemate)'
-    subtitle = 'Vua không bị chiếu nhưng không còn nước đi hợp lệ.'
-  } else if (isThreefold) {
-    title = 'Hòa Cờ (Lặp Thế Cờ)'
-    subtitle = 'Thế cờ bị lặp lại 3 lần liên tiếp.'
-  } else if (isInsufficientMaterial) {
-    title = 'Hòa Cờ (Thiếu Lực Lượng)'
-    subtitle = 'Cả hai bên không còn đủ quân để chiếu bí.'
-  } else {
-    title = 'Hòa Cờ'
-    subtitle = 'Ván đấu kết thúc theo luật 50 nước.'
-  }
-
+  const title = isCheckmate
+    ? `Quân ${currentTurn === 'w' ? 'đen' : 'trắng'} chiến thắng.`
+    : 'Một ván cờ cân sức.'
+  const description = isCheckmate
+    ? 'Chiếu bí! Một nước đi đẹp để khép lại ván đấu.'
+    : isStalemate
+      ? 'Hòa do hết nước đi hợp lệ dù vua không bị chiếu.'
+      : isThreefold
+        ? 'Hòa vì cùng một thế cờ đã xuất hiện ba lần.'
+        : isInsufficientMaterial
+          ? 'Hòa vì cả hai bên không còn đủ quân để chiếu bí.'
+          : 'Ván đấu hòa theo luật 50 nước.'
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="bg-zinc-900 border border-zinc-750 rounded-2xl p-6 sm:p-8 shadow-2xl max-w-sm w-full text-center">
-        <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-2xl">
-          {isCheckmate ? '👑' : '🤝'}
-        </div>
-
-        <h3 className="text-xl font-bold text-zinc-100 mb-2">{title}</h3>
-        <p className="text-xs sm:text-sm text-zinc-400 mb-6">{subtitle}</p>
-
-        <button
-          onClick={onNewGame}
-          className="w-full py-3 px-4 rounded-xl font-semibold bg-amber-500 hover:bg-amber-400 text-zinc-950 shadow-lg hover:shadow-amber-500/25 active:scale-98 transition-all"
-        >
-          Bắt Đầu Ván Mới
-        </button>
+    <Dialog title={title} description={description} onClose={onReview} className="result-dialog">
+      <div className="result-icon">
+        {isCheckmate ? <Crown size={35} /> : <Handshake size={35} />}
       </div>
-    </div>
+      <button className="primary-button" onClick={onNewGame}>
+        Thêm một ván nữa
+        <ArrowRight size={18} />
+      </button>
+      <button className="text-button" onClick={onReview}>
+        Xem lại bàn cờ
+      </button>
+    </Dialog>
   )
 }

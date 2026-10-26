@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { Chess, type Square as ChessSquare } from 'chess.js'
+import { useState, useCallback, useEffect, useMemo } from 'react'
+import { Chess } from 'chess.js'
 import type {
   Square,
   Color,
@@ -11,377 +11,286 @@ import type {
   PendingPromotion,
 } from '../types/chess'
 import { sounds } from '../utils/sound'
-import { getBestBotMove } from '../utils/bot'
+import { usePreference } from './usePreference'
+import type { BotResponse } from '../workers/chess.worker'
 
-const INITIAL_PIECES: Record<PieceType, number> = {
-  p: 8,
-  n: 2,
-  b: 2,
-  r: 2,
-  q: 1,
-  k: 1,
-}
-
-const PIECE_VALUES: Record<PieceType, number> = {
-  p: 1,
-  n: 3,
-  b: 3,
-  r: 5,
-  q: 9,
-  k: 0,
-}
+const PIECE_VALUES: Record<PieceType, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 }
 
 export function useChessGame() {
-  const [chess] = useState<Chess>(() => new Chess())
-  const [, setTick] = useState(0) // Forces component re-render on game update
-
+  const [chess] = useState(() => new Chess())
+  const [fen, setFen] = useState(chess.fen())
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null)
   const [validMoves, setValidMoves] = useState<Square[]>([])
-  const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null)
-  const [moveHistory, setMoveHistory] = useState<MoveLogItem[]>([])
   const [pendingPromotion, setPendingPromotion] = useState<PendingPromotion | null>(null)
-
-  // Settings
-  const [isFlipped, setIsFlipped] = useState<boolean>(false)
-  const [gameMode, setGameMode] = useState<GameMode>('pass-and-play')
+  const [isFlipped, setIsFlipped] = useState(false)
+  const [gameMode, setGameMode] = useState<GameMode>('vs-bot')
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('medium')
   const [playerColor, setPlayerColor] = useState<Color>('w')
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true)
+  const [soundEnabled, setSoundEnabled] = usePreference(
+    'sound',
+    true,
+    (value): value is boolean => typeof value === 'boolean',
+  )
+  const [isBotThinking, setIsBotThinking] = useState(false)
+  const [botError, setBotError] = useState(false)
+  const [botRetry, setBotRetry] = useState(0)
 
-  const isBotThinking = useRef<boolean>(false)
+  useEffect(() => {
+    sounds.setEnabled(soundEnabled)
+  }, [soundEnabled])
 
-  // Update sound manager toggle
-  const toggleSound = useCallback(() => {
-    setSoundEnabled((prev) => {
-      const next = !prev
-      sounds.setEnabled(next)
-      return next
-    })
+  const position = useMemo(() => {
+    const board = chess.board()
+    const history = chess.history({ verbose: true })
+    const moveHistory: MoveLogItem[] = history.map((move) => ({
+      san: move.san,
+      from: move.from,
+      to: move.to,
+      piece: move.piece,
+      color: move.color,
+      captured: move.captured,
+    }))
+    const captured: Record<Color, CapturedPieceGroup[]> = { w: [], b: [] }
+    for (const color of ['w', 'b'] as const) {
+      for (const type of ['p', 'n', 'b', 'r', 'q'] as const) {
+        const count = history.filter(
+          (move) => move.captured === type && move.color !== color,
+        ).length
+        if (count) captured[color].push({ type, color, count })
+      }
+    }
+    let materialAdvantage = 0
+    let kingInCheckSquare: Square | null = null
+    const isCheck = chess.inCheck()
+    for (const row of board) {
+      for (const piece of row) {
+        if (!piece) continue
+        materialAdvantage += PIECE_VALUES[piece.type] * (piece.color === 'w' ? 1 : -1)
+        if (isCheck && piece.type === 'k' && piece.color === chess.turn())
+          kingInCheckSquare = piece.square
+      }
+    }
+    const last = history[history.length - 1]
+    return {
+      board,
+      moveHistory,
+      materialAdvantage,
+      kingInCheckSquare,
+      lastMove: last ? { from: last.from, to: last.to } : null,
+      capturedWhite: captured.w,
+      capturedBlack: captured.b,
+      turn: chess.turn(),
+      isCheck,
+      isCheckmate: chess.isCheckmate(),
+      isDraw: chess.isDraw(),
+      isStalemate: chess.isStalemate(),
+      isThreefold: chess.isThreefoldRepetition(),
+      isInsufficientMaterial: chess.isInsufficientMaterial(),
+      isGameOver: chess.isGameOver(),
+    }
+  }, [chess, fen])
+
+  const clearSelection = useCallback(() => {
+    setSelectedSquare(null)
+    setValidMoves([])
   }, [])
 
-  // Calculate captured pieces & material difference
-  const calculateCaptured = useCallback(() => {
-    const currentCounts: Record<Color, Record<PieceType, number>> = {
-      w: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
-      b: { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 },
-    }
-
-    const board = chess.board()
-    for (const row of board) {
-      for (const sq of row) {
-        if (sq) {
-          currentCounts[sq.color][sq.type]++
-        }
-      }
-    }
-
-    const capturedW: CapturedPieceGroup[] = []
-    const capturedB: CapturedPieceGroup[] = []
-    let whiteMaterial = 0
-    let blackMaterial = 0
-
-    const pieceOrder: PieceType[] = ['p', 'n', 'b', 'r', 'q']
-
-    for (const p of pieceOrder) {
-      const whiteCaptured = INITIAL_PIECES[p] - currentCounts.w[p]
-      if (whiteCaptured > 0) {
-        capturedW.push({ type: p, color: 'w', count: whiteCaptured })
-      }
-
-      const blackCaptured = INITIAL_PIECES[p] - currentCounts.b[p]
-      if (blackCaptured > 0) {
-        capturedB.push({ type: p, color: 'b', count: blackCaptured })
-      }
-
-      whiteMaterial += currentCounts.w[p] * PIECE_VALUES[p]
-      blackMaterial += currentCounts.b[p] * PIECE_VALUES[p]
-    }
-
-    return {
-      capturedWhite: capturedW, // White pieces captured by Black
-      capturedBlack: capturedB, // Black pieces captured by White
-      materialAdvantage: whiteMaterial - blackMaterial, // > 0: White ahead, < 0: Black ahead
-    }
-  }, [chess])
-
   const executeMove = useCallback(
-    (from: Square, to: Square, promotionPiece?: PieceType) => {
+    (from: Square, to: Square, promotion: PieceType = 'q') => {
       try {
-        const move = chess.move({
-          from,
-          to,
-          promotion: promotionPiece || 'q',
-        })
-
+        const move = chess.move({ from, to, promotion })
         if (!move) return false
-
-        // Play appropriate sound
-        if (chess.isCheckmate() || chess.isDraw()) {
-          sounds.playVictory()
-        } else if (chess.inCheck()) {
-          sounds.playCheck()
-        } else if (move.flags.includes('k') || move.flags.includes('q')) {
-          sounds.playCastle()
-        } else if (move.captured) {
-          sounds.playCapture()
-        } else {
-          sounds.playMove()
-        }
-
-        setLastMove({ from, to })
-        setSelectedSquare(null)
-        setValidMoves([])
-        setMoveHistory((prev) => [
-          ...prev,
-          {
-            san: move.san,
-            from: move.from as Square,
-            to: move.to as Square,
-            piece: move.piece as PieceType,
-            color: move.color as Color,
-            captured: move.captured as PieceType | undefined,
-          },
-        ])
-        setTick((t) => t + 1)
+        setFen(chess.fen())
+        clearSelection()
+        if (chess.isGameOver()) sounds.playVictory()
+        else if (chess.inCheck()) sounds.playCheck()
+        else if (move.flags.includes('k') || move.flags.includes('q')) sounds.playCastle()
+        else if (move.captured) sounds.playCapture()
+        else sounds.playMove()
         return true
       } catch {
         return false
       }
     },
-    [chess]
+    [chess, clearSelection],
   )
 
-  // Promotion handling
   const handleMoveAttempt = useCallback(
     (from: Square, to: Square) => {
-      const piece = chess.get(from)
-      if (!piece) return false
-
-      // Check if this move requires pawn promotion
-      const isPawnPromotion =
-        piece.type === 'p' &&
-        ((piece.color === 'w' && to.endsWith('8')) ||
-          (piece.color === 'b' && to.endsWith('1')))
-
-      if (isPawnPromotion) {
-        // Check if the move is legal first
-        const legalMoves = chess.moves({ square: from, verbose: true })
-        const isLegal = legalMoves.some((m) => m.to === to)
-        if (isLegal) {
-          setPendingPromotion({ from, to, color: piece.color as Color })
-          return true
-        }
+      if (
+        pendingPromotion ||
+        chess.isGameOver() ||
+        (gameMode === 'vs-bot' && chess.turn() !== playerColor)
+      )
         return false
+      const piece = chess.get(from)
+      if (!piece || piece.color !== chess.turn()) return false
+      if (piece.type === 'p' && (to.endsWith('8') || to.endsWith('1'))) {
+        if (!chess.moves({ square: from, verbose: true }).some((move) => move.to === to))
+          return false
+        setPendingPromotion({ from, to, color: piece.color })
+        return true
       }
-
       return executeMove(from, to)
     },
-    [chess, executeMove]
+    [chess, pendingPromotion, gameMode, playerColor, executeMove],
+  )
+
+  const selectSquare = useCallback(
+    (square: Square) => {
+      if (
+        pendingPromotion ||
+        chess.isGameOver() ||
+        (gameMode === 'vs-bot' && chess.turn() !== playerColor)
+      )
+        return
+      if (selectedSquare === square) {
+        clearSelection()
+        return
+      }
+      if (selectedSquare && validMoves.includes(square)) {
+        handleMoveAttempt(selectedSquare, square)
+        return
+      }
+      const piece = chess.get(square)
+      if (piece?.color === chess.turn()) {
+        setSelectedSquare(square)
+        setValidMoves([...new Set(chess.moves({ square, verbose: true }).map((move) => move.to))])
+      } else clearSelection()
+    },
+    [
+      chess,
+      pendingPromotion,
+      gameMode,
+      playerColor,
+      selectedSquare,
+      validMoves,
+      handleMoveAttempt,
+      clearSelection,
+    ],
   )
 
   const completePromotion = useCallback(
-    (promotionPiece: PieceType) => {
-      if (!pendingPromotion) return
-      executeMove(pendingPromotion.from, pendingPromotion.to, promotionPiece)
-      setPendingPromotion(null)
+    (piece: PieceType) => {
+      if (pendingPromotion && ['q', 'r', 'b', 'n'].includes(piece)) {
+        executeMove(pendingPromotion.from, pendingPromotion.to, piece)
+        setPendingPromotion(null)
+      }
     },
-    [pendingPromotion, executeMove]
+    [pendingPromotion, executeMove],
   )
 
   const cancelPromotion = useCallback(() => {
     setPendingPromotion(null)
-    setSelectedSquare(null)
-    setValidMoves([])
-  }, [])
+    clearSelection()
+  }, [clearSelection])
 
-  // User square selection
-  const selectSquare = useCallback(
-    (sq: Square) => {
-      if (pendingPromotion) return
-
-      // If playing vs bot and it's bot's turn, ignore clicks
-      if (gameMode === 'vs-bot' && chess.turn() !== playerColor) {
-        return
-      }
-
-      // If a piece was already selected
-      if (selectedSquare) {
-        // If clicking the same square, deselect
-        if (selectedSquare === sq) {
-          setSelectedSquare(null)
-          setValidMoves([])
-          return
-        }
-
-        // If clicking a valid move square, execute move
-        if (validMoves.includes(sq)) {
-          handleMoveAttempt(selectedSquare, sq)
-          return
-        }
-
-        // Otherwise, if clicking another of own pieces, switch selection
-        const targetPiece = chess.get(sq)
-        if (targetPiece && targetPiece.color === chess.turn()) {
-          setSelectedSquare(sq)
-          const moves = chess.moves({ square: sq, verbose: true })
-          setValidMoves(moves.map((m) => m.to as Square))
-          return
-        }
-
-        // Clicked invalid empty/opponent square, deselect
-        setSelectedSquare(null)
-        setValidMoves([])
-        return
-      }
-
-      // No square currently selected: select if piece belongs to current turn
-      const piece = chess.get(sq)
-      if (piece && piece.color === chess.turn()) {
-        setSelectedSquare(sq)
-        const moves = chess.moves({ square: sq, verbose: true })
-        setValidMoves(moves.map((m) => m.to as Square))
-      }
-    },
-    [chess, selectedSquare, validMoves, pendingPromotion, gameMode, playerColor, handleMoveAttempt]
-  )
-
-  // Undo move
   const undoMove = useCallback(() => {
     if (pendingPromotion) {
-      setPendingPromotion(null)
+      cancelPromotion()
       return
     }
-
-    if (moveHistory.length === 0) return
-
-    if (gameMode === 'vs-bot') {
-      // In bot mode, undo 2 moves (both bot and player)
-      chess.undo()
-      chess.undo()
-      setMoveHistory((prev) => prev.slice(0, -2))
-    } else {
-      chess.undo()
-      setMoveHistory((prev) => prev.slice(0, -1))
-    }
-
-    setSelectedSquare(null)
-    setValidMoves([])
     const history = chess.history({ verbose: true })
-    if (history.length > 0) {
-      const last = history[history.length - 1]
-      setLastMove({ from: last.from as Square, to: last.to as Square })
-    } else {
-      setLastMove(null)
-    }
-    setTick((t) => t + 1)
+    if (
+      !history.length ||
+      (gameMode === 'vs-bot' && !history.some((move) => move.color === playerColor))
+    )
+      return
+    chess.undo()
+    // Return control to the human when the bot has already replied.
+    if (gameMode === 'vs-bot' && chess.turn() !== playerColor && chess.history().length)
+      chess.undo()
+    setFen(chess.fen())
+    clearSelection()
     sounds.playMove()
-  }, [chess, pendingPromotion, moveHistory.length, gameMode])
+  }, [chess, pendingPromotion, cancelPromotion, gameMode, playerColor, clearSelection])
 
-  // Reset game
   const resetGame = useCallback(() => {
     chess.reset()
-    setSelectedSquare(null)
-    setValidMoves([])
-    setLastMove(null)
-    setMoveHistory([])
+    setFen(chess.fen())
     setPendingPromotion(null)
-    isBotThinking.current = false
-    setTick((t) => t + 1)
+    clearSelection()
     sounds.playMove()
-  }, [chess])
+  }, [chess, clearSelection])
 
-  // Flip board orientation
-  const toggleFlip = useCallback(() => {
-    setIsFlipped((prev) => !prev)
-  }, [])
-
-  // Bot Turn Automation
   useEffect(() => {
+    clearSelection()
+    setPendingPromotion(null)
+    if (gameMode === 'vs-bot') setIsFlipped(playerColor === 'b')
+  }, [gameMode, playerColor, clearSelection])
+
+  useEffect(() => {
+    setBotError(false)
     if (
-      gameMode === 'vs-bot' &&
-      chess.turn() !== playerColor &&
-      !chess.isGameOver() &&
-      !isBotThinking.current
+      gameMode !== 'vs-bot' ||
+      chess.turn() === playerColor ||
+      chess.isGameOver() ||
+      pendingPromotion
     ) {
-      isBotThinking.current = true
-      const timer = setTimeout(() => {
-        const botMove = getBestBotMove(chess.fen(), botDifficulty)
-        if (botMove) {
-          executeMove(botMove.from as Square, botMove.to as Square, botMove.promotion as PieceType)
-        }
-        isBotThinking.current = false
-      }, 350)
-
-      return () => clearTimeout(timer)
+      setIsBotThinking(false)
+      return
     }
-  }, [chess, gameMode, playerColor, botDifficulty, executeMove])
-
-  // Auto flip board when setting player color in bot mode
-  useEffect(() => {
-    if (gameMode === 'vs-bot') {
-      setIsFlipped(playerColor === 'b')
-    }
-  }, [gameMode, playerColor])
-
-  // Find King square for check warning highlight
-  const findKingSquare = useCallback(
-    (color: Color): Square | null => {
-      const board = chess.board()
-      for (let r = 0; r < 8; r++) {
-        for (let c = 0; c < 8; c++) {
-          const piece = board[r][c]
-          if (piece && piece.type === 'k' && piece.color === color) {
-            const file = String.fromCharCode('a'.charCodeAt(0) + c)
-            const rank = (8 - r).toString()
-            return `${file}${rank}` as ChessSquare
-          }
+    setIsBotThinking(true)
+    let worker: Worker | undefined
+    const timer = window.setTimeout(() => {
+      try {
+        worker = new Worker(new URL('../workers/chess.worker.ts', import.meta.url), {
+          type: 'module',
+        })
+        worker.onmessage = (event: MessageEvent<BotResponse>) => {
+          if (chess.fen() !== fen) return
+          const { move, error } = event.data
+          const moved = move && executeMove(move.from, move.to, move.promotion)
+          setBotError(Boolean(error) || !moved)
+          setIsBotThinking(false)
+          worker?.terminate()
         }
+        worker.onerror = () => {
+          setBotError(true)
+          setIsBotThinking(false)
+          worker?.terminate()
+        }
+        worker.postMessage({ fen, difficulty: botDifficulty })
+      } catch {
+        setBotError(true)
+        setIsBotThinking(false)
       }
-      return null
-    },
-    [chess]
-  )
-
-  const inCheck = chess.inCheck()
-  const kingInCheckSquare = inCheck ? findKingSquare(chess.turn()) : null
-  const { capturedWhite, capturedBlack, materialAdvantage } = calculateCaptured()
+    }, 240)
+    return () => {
+      window.clearTimeout(timer)
+      worker?.terminate()
+    }
+  }, [chess, fen, gameMode, playerColor, botDifficulty, pendingPromotion, executeMove, botRetry])
 
   return {
     chess,
-    fen: chess.fen(),
-    board: chess.board(),
-    turn: chess.turn() as Color,
-    isCheck: inCheck,
-    isCheckmate: chess.isCheckmate(),
-    isDraw: chess.isDraw(),
-    isStalemate: chess.isStalemate(),
-    isThreefold: chess.isThreefoldRepetition(),
-    isInsufficientMaterial: chess.isInsufficientMaterial(),
-    isGameOver: chess.isGameOver(),
+    fen,
+    ...position,
     selectedSquare,
     validMoves,
-    lastMove,
-    moveHistory,
     pendingPromotion,
-    kingInCheckSquare,
-    capturedWhite,
-    capturedBlack,
-    materialAdvantage,
     isFlipped,
     gameMode,
     botDifficulty,
     playerColor,
     soundEnabled,
+    isBotThinking,
+    botError,
+    canUndo:
+      gameMode === 'pass-and-play'
+        ? position.moveHistory.length > 0
+        : position.moveHistory.some((move) => move.color === playerColor),
     selectSquare,
     handleMoveAttempt,
     completePromotion,
     cancelPromotion,
     undoMove,
     resetGame,
-    toggleFlip,
+    toggleFlip: () => setIsFlipped((value) => !value),
+    toggleSound: () => setSoundEnabled((value) => !value),
+    retryBot: () => setBotRetry((value) => value + 1),
     setGameMode,
     setBotDifficulty,
     setPlayerColor,
-    toggleSound,
   }
 }
