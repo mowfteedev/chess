@@ -126,7 +126,7 @@ export function Lobby({ onCreate, onJoin }: { onCreate: () => void; onJoin: () =
         </button>
       </section>
       <div className="lobby-bottom-note">
-        <span className="small-star">✦</span>Không cần tài khoản. Không tính giờ. Cứ tận hưởng ván
+        <span className="small-star">✦</span>Không cần tài khoản. Chọn nhịp chơi. Cùng tận hưởng ván
         cờ.
       </div>
     </main>

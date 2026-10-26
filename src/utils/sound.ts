@@ -1,143 +1,127 @@
-class SoundManager {
-  private ctx: AudioContext | null = null
-  private enabled: boolean = true
-
-  constructor() {
-    // AudioContext will be initialized on first user interaction
-  }
+export class SoundManager {
+  private ctx: AudioContext | null = null;
+  private master: GainNode | null = null;
+  private enabled = true;
 
   private initCtx() {
-    if (!this.ctx && typeof window !== 'undefined') {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-      if (AudioCtx) {
-        this.ctx = new AudioCtx()
+    if (!this.enabled || typeof window === "undefined") return null;
+    try {
+      if (!this.ctx || this.ctx.state === "closed") {
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext?: typeof AudioContext })
+            .webkitAudioContext;
+        if (!AudioCtx) return null;
+        this.ctx = new AudioCtx();
+        this.master = this.ctx.createGain();
+        this.master.gain.setValueAtTime(0.65, this.ctx.currentTime);
+        this.master.connect(this.ctx.destination);
       }
+      if (this.ctx.state === "suspended") {
+        // Autoplay permission must be requested inside a pointer/key gesture.
+        void this.ctx.resume().catch(() => {});
+      }
+      return this.ctx;
+    } catch {
+      // Audio is optional, including on devices without a usable output device.
+      return null;
     }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume()
+  }
+
+  public unlock() {
+    this.initCtx();
+  }
+
+  public setEnabled(value: boolean) {
+    this.enabled = value;
+    try {
+      if (this.ctx && this.master) {
+        this.master.gain.cancelScheduledValues(this.ctx.currentTime);
+        this.master.gain.setValueAtTime(value ? 0.65 : 0, this.ctx.currentTime);
+      }
+    } catch {
+      // A closed output device must not affect the game or the mute control.
     }
   }
 
-  public setEnabled(val: boolean) {
-    this.enabled = val
+  public isEnabled() {
+    return this.enabled;
   }
 
-  public isEnabled(): boolean {
-    return this.enabled
+  private tone(
+    frequency: number,
+    duration: number,
+    volume = 0.2,
+    delay = 0,
+    type: OscillatorType = "sine",
+    endFrequency?: number,
+  ) {
+    const ctx = this.initCtx();
+    if (!ctx || !this.master || !this.enabled) return;
+    try {
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const start = ctx.currentTime + delay;
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, start);
+      if (endFrequency)
+        oscillator.frequency.exponentialRampToValueAtTime(
+          endFrequency,
+          start + duration,
+        );
+      gain.gain.setValueAtTime(0.001, start);
+      gain.gain.exponentialRampToValueAtTime(volume, start + 0.004);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+      oscillator.connect(gain);
+      gain.connect(this.master);
+      oscillator.onended = () => {
+        oscillator.disconnect();
+        gain.disconnect();
+      };
+      oscillator.start(start);
+      oscillator.stop(start + duration + 0.01);
+    } catch {
+      // The visual notification and chess move remain usable if audio fails.
+    }
   }
 
-  // Crisp piece move tap
   public playMove() {
-    if (!this.enabled) return
-    this.initCtx()
-    if (!this.ctx) return
-
-    const now = this.ctx.currentTime
-    const osc = this.ctx.createOscillator()
-    const gain = this.ctx.createGain()
-
-    osc.type = 'triangle'
-    osc.frequency.setValueAtTime(320, now)
-    osc.frequency.exponentialRampToValueAtTime(140, now + 0.05)
-
-    gain.gain.setValueAtTime(0.3, now)
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05)
-
-    osc.connect(gain)
-    gain.connect(this.ctx.destination)
-
-    osc.start(now)
-    osc.stop(now + 0.05)
+    this.tone(320, 0.065, 0.3, 0, "triangle", 140);
   }
 
-  // Heavy capture impact
   public playCapture() {
-    if (!this.enabled) return
-    this.initCtx()
-    if (!this.ctx) return
-
-    const now = this.ctx.currentTime
-    const osc = this.ctx.createOscillator()
-    const gain = this.ctx.createGain()
-
-    osc.type = 'sine'
-    osc.frequency.setValueAtTime(450, now)
-    osc.frequency.exponentialRampToValueAtTime(90, now + 0.08)
-
-    gain.gain.setValueAtTime(0.5, now)
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08)
-
-    osc.connect(gain)
-    gain.connect(this.ctx.destination)
-
-    osc.start(now)
-    osc.stop(now + 0.08)
+    this.tone(450, 0.1, 0.4, 0, "sine", 90);
   }
 
-  // Check alert ping
   public playCheck() {
-    if (!this.enabled) return
-    this.initCtx()
-    if (!this.ctx) return
-
-    const now = this.ctx.currentTime
-    const notes = [600, 900]
-    notes.forEach((freq, i) => {
-      if (!this.ctx) return
-      const osc = this.ctx.createOscillator()
-      const gain = this.ctx.createGain()
-      const startTime = now + i * 0.07
-
-      osc.type = 'sine'
-      osc.frequency.setValueAtTime(freq, startTime)
-
-      gain.gain.setValueAtTime(0.25, startTime)
-      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.15)
-
-      osc.connect(gain)
-      gain.connect(this.ctx.destination)
-
-      osc.start(startTime)
-      osc.stop(startTime + 0.15)
-    })
+    this.tone(600, 0.15);
+    this.tone(900, 0.15, 0.2, 0.07);
   }
 
-  // Castling double tap
   public playCastle() {
-    if (!this.enabled) return
-    this.playMove()
-    setTimeout(() => {
-      this.playMove()
-    }, 90)
+    this.tone(320, 0.065, 0.3, 0, "triangle", 140);
+    this.tone(320, 0.065, 0.3, 0.09, "triangle", 140);
   }
 
-  // Victory fanfare
   public playVictory() {
-    if (!this.enabled) return
-    this.initCtx()
-    if (!this.ctx) return
+    for (const [index, frequency] of [523.25, 659.25, 783.99, 1046.5].entries())
+      this.tone(frequency, 0.3, 0.2, index * 0.1, "triangle");
+  }
 
-    const now = this.ctx.currentTime
-    const freqs = [523.25, 659.25, 783.99, 1046.50] // C5, E5, G5, C6
-    freqs.forEach((freq, idx) => {
-      if (!this.ctx) return
-      const osc = this.ctx.createOscillator()
-      const gain = this.ctx.createGain()
-      const startTime = now + idx * 0.1
+  public playJoin() {
+    this.tone(587.33, 0.16, 0.16);
+    this.tone(783.99, 0.22, 0.16, 0.1);
+  }
 
-      osc.type = 'triangle'
-      osc.frequency.setValueAtTime(freq, startTime)
+  public playLeave() {
+    this.tone(440, 0.15, 0.12);
+    this.tone(329.63, 0.2, 0.12, 0.1);
+  }
 
-      gain.gain.setValueAtTime(0.2, startTime)
-      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.3)
-
-      osc.connect(gain)
-      gain.connect(this.ctx.destination)
-
-      osc.start(startTime)
-      osc.stop(startTime + 0.35)
-    })
+  public playYourTurn() {
+    this.tone(659.25, 0.09, 0.11);
+    this.tone(880, 0.13, 0.11, 0.08);
   }
 }
 
-export const sounds = new SoundManager()
+export const sounds = new SoundManager();

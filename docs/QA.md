@@ -1,41 +1,41 @@
-# Tự kiểm tra Gambit Rooms — Supabase
+# Tự kiểm tra — đồng hồ, âm thanh và phản hồi
 
-Ngày 26/10/2026. Thay đổi dựa trên `cbbbefb7bb1def659c21f02cd6249648ca038d32`; cùng người triển khai và tự kiểm, không phải review độc lập.
+Ngày 26/10/2026, thay đổi dựa trên `351317a`. Kiểm tra do cùng nhóm triển khai thực hiện; không phải nghiệm thu độc lập.
 
-## Phạm vi
+## Kết quả
 
-| Tiêu chí              | Bằng chứng                                                                                                                      | Kết quả |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| Chỉ chơi với người    | Sảnh tạo/tham gia; không có UI và module máy                                                                                    | PASS    |
-| Hai người đồng bộ     | Hai browser context, PostgreSQL/Auth/Realtime/Edge Runtime cục bộ thật; WebRTC bị chặn trong các context này                    | PASS    |
-| Hai ghế và phân quyền | Từ chối người thứ ba; hai người cùng xin ghế cuối chỉ một người được nhận; publishable key không thay thế JWT                   | PASS    |
-| Máy chủ giữ luật      | Sai lượt bị từ chối, gửi trùng chỉ áp dụng một lần, PATCH trực tiếp trạng thái bị 403                                           | PASS    |
-| Nghiệp vụ             | Cả hai màu, kéo thả, keyboard, PGN, nhập thành, bắt qua đường, phong cấp/hủy, chiếu bí, đầu hàng, đấu lại đồng thuận và đổi màu | PASS    |
-| Phục hồi              | Reload hai phía, đọc lại lịch sử từ server, đóng tab, xác nhận rời phòng, retry tạo phòng sau lỗi mạng                          | PASS    |
-| Mobile                | 320×740, 390×844, 768×1024; không tràn ngang; nút tiện ích ≥44px; bàn cờ và dialog thao tác được                                | PASS    |
-| Cache                 | Manifest chống cache, reload có version, không tự tải lại ván, entry JS bị lỗi có màn khôi phục                                 | PASS    |
-| TypeScript/luật cờ    | Frontend + server được kiểm type; `npm test` 5/5                                                                                | PASS    |
+`CI=true npm run test:e2e`: **52/52** trong khoảng một phút trên Chromium/Linux với PostgreSQL/Auth/Realtime/Edge Runtime Docker thật, project cô lập `gambit-chess-test`. `npm test`: **5/5**. TypeScript frontend và Edge đều qua. CI chạy lại trên commit phát hành trước khi deploy: [GitHub Actions](https://github.com/mowfteedev/chess/actions/workflows/deploy.yml).
 
-Lần chạy cuối với `CI=true` đạt **37/37 ca Playwright** trong 46,5 giây: 30 ca UI/trình duyệt, 1 ca HTTP auth và 6 ca protocol. `npm test` đạt 5/5; TypeScript frontend/server đều qua. CI chạy lại toàn bộ suite trên commit phát hành trước khi deploy: [GitHub Actions](https://github.com/mowfteedev/chess/actions/workflows/deploy.yml).
+| Tiêu chí              | Bằng chứng                                                                                                          | Kết quả |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------- | ------- |
+| Preset và bắt đầu giờ | 1/5/10 phút, mặc định 5, chờ ghế không mất giờ, bắt đầu khi ghép ghế                                                | PASS    |
+| Đồng hồ server        | Chỉ trừ bên đang đi, reload giữ giờ, claim sớm bị 409, preset lạ bị 400                                             | PASS    |
+| Hết giờ và đấu lại    | Chốt timeout, không nhận nước tới muộn; dừng khi kết thúc; đồng thuận reset và đổi màu                              | PASS    |
+| Mất kết nối           | Đồng hồ tiếp tục, thành viên đang online vẫn đi đúng lượt; thông báo vào/rời bàn                                    | PASS    |
+| Phản hồi ngay         | Giữ POST, quân xuất hiện trước ACK; lỗi đọc nền không xóa pending; POST bị từ chối trả quân lại và có thể thử tiếp  | PASS    |
+| Âm thanh              | Gesture mở AudioContext, phát nước/lượt, mute không tạo nốt mới và tắt âm đã lên lịch; autoplay bị chặn không crash | PASS    |
+| Quyền và đồng thời    | Người thứ ba, hai join đồng thời, sai lượt, gửi trùng, PATCH trực tiếp và publishable key thiếu JWT                 | PASS    |
+| Hồi quy cờ và cache   | Chiếu bí, nhập thành, bắt qua đường, phong cấp/hủy, PGN, keyboard, reload, cập nhật có xác nhận                     | PASS    |
+| Responsive            | 320/390/768/1440px; tên dài và đồng hồ không tràn ngang; tiện ích chạm ≥44px                                        | PASS    |
 
-Đã tái hiện và sửa việc phản hồi hiện diện cũ ghi đè heartbeat mới. Ca gây trễ một HTTP read thật xác minh kết nối và ô đang chọn không bị trả về trạng thái cũ. Ca này cùng reload khách qua 8 lượt kiểm tra lặp; kiểm tra reload chờ chủ phòng nhận heartbeat mới trước khi đi tiếp. Ca retry tạo phòng cũng đã đỏ trước bản vá, xanh sau bản vá.
+Quét Axe trên 8 trạng thái (sảnh 320px, setup thời gian 320px, phòng chờ, desktop có đồng hồ/toast, game 320px tên dài, game 390px, màu bàn và biên bản mobile): không có vi phạm tự động, không có lỗi JavaScript. Chờ animation dialog kết thúc trước khi quét. Ảnh game desktop/mobile trong `docs/screenshots` phản ánh bản này. Đây không phải chứng nhận WCAG.
 
-Môi trường cục bộ: Chromium headless/Linux, stack Docker `gambit-chess-test`, API `127.0.0.1:56321`. Không dùng project production cho bộ E2E hoặc mock transport của các ca chơi cờ. Khóa môi trường test được sinh từ CLI status và nằm trong file ignored.
+## Đo độ trễ
 
-## Kiểm tra runtime với Supabase thật
+Một ván QA, 10 nửa nước hợp lệ; bỏ 2 nước đầu làm warm-up, lấy 8 mẫu, cùng Chromium/Linux và đường mạng. Đo từ thao tác ô đích tới UI của người đi và đối thủ; bao gồm overhead thao tác Playwright. Trước: frontend GitHub Pages ở `351317a`; sau: preview production cục bộ dùng **Supabase cloud thật**. Khác origin frontend nên không dùng số liệu này để so tốc độ tải trang.
 
-Hai browser context riêng tại frontend phát triển đã tạo/tham gia phòng trên Supabase cloud, đồng bộ `e4`, `e5` và ghi nhận 2 nửa nước. GET health sau triển khai trả 200 với protocol 2. Không có lỗi JavaScript trong ca này.
+| Chỉ số                   | Trước                  | Sau                                           |
+| ------------------------ | ---------------------- | --------------------------------------------- |
+| Người đi, p50            | 1.025 ms               | 42 ms                                         |
+| Người đi, p95 trên 8 mẫu | 2.259 ms               | 55 ms                                         |
+| Đối thủ, p50             | 1.494 ms               | 774 ms                                        |
+| Đối thủ, p95 trên 8 mẫu  | 3.344 ms               | 979 ms                                        |
+| Region hàm quan sát được | Seoul `ap-northeast-2` | Sydney `ap-southeast-2`, cùng region database |
 
-Quét Axe trên 9 trạng thái của cùng lượt chạy không ghi nhận vi phạm tự động: sảnh desktop/mobile, tạo phòng, phòng chờ, tham gia mobile, ván desktop/mobile, dialog màu bàn và biên bản mobile. Ảnh trong `docs/screenshots` được chụp từ lượt này. Đây là bằng chứng kiểm tra tự động, không phải chứng nhận WCAG hoặc thay cho thử trên thiết bị thật.
+[Raw samples](performance/rooms-20261026.json), script tái lập: `node scripts/measure-room-latency.mjs <frontend-url> [label]`. Script tạo một phòng QA và đi 10 nửa nước, không phải load test. Bản sau vẫn có cold start: yêu cầu tạo phòng đầu sau deploy mất khoảng 6,1 giây. Tối ưu phản hồi cục bộ không có nghĩa server đã xác nhận ngay. Không ngoại suy p95 từ 8 mẫu thành cam kết cho mọi mạng hay sức tải.
 
-## Migration và triển khai
+## Migration và giới hạn
 
-Đã kiểm tra project đích chưa có bảng public trước khi tạo đối tượng Gambit. `db push --dry-run` chỉ liệt kê migration `202610260001_gambit_rooms.sql`. Migration đã qua PostgreSQL cục bộ và các ca API/RLS trước khi áp dụng lên Supabase.
+Migration mới `202610260002_gambit_clocks.sql` đã kiểm local, dry-run chỉ liệt kê chính migration này rồi mới áp dụng cloud. Không sửa migration đã áp dụng, không backfill clock cho ván cũ. Edge triển khai sau SQL; client cũ không gửi preset vẫn tạo phòng không tính giờ. Bảng/receipt và service RPC giữ RLS/quyền; kiểm SQL trong transaction rollback bao phủ flag race, idempotency, offline, đầu hàng và rematch offer/decline không chạy lại giờ.
 
-Backend được áp dụng bằng CLI có migration history, Edge Function triển khai riêng. Không đưa mật khẩu, access token hay service_role key vào frontend/GitHub repository. Frontend chỉ nhận URL và publishable key qua cấu hình public.
-
-## Giới hạn
-
-Chưa thử screen reader thực, máy cảm ứng thật, Safari/Firefox hoặc hai mạng 4G riêng biệt. Kiến trúc mới dùng HTTPS/WebSocket tới Supabase, không còn yêu cầu TURN/P2P. Phiên ẩn danh thuộc tab; mất phiên có thể mất quyền vào lại. Phòng hết hạn nhận thao tác sau 48 giờ; chưa tự purge dữ liệu. Khả năng phục vụ lâu dài phụ thuộc quota và trạng thái project Supabase.
-
-Không cần migration phá hủy dữ liệu để quay lại giao diện cũ; giữ bảng khi rollback. Xem [ADR](ARCHITECTURE.md).
+Chưa thử điện thoại cảm ứng thật, screen reader, Safari/Firefox hoặc hai mạng 4G độc lập. Mất mạng đột ngột có thể cần tới 45 giây để xác định hiện diện. Cả hai offline thì timeout được ghi nhận ở yêu cầu hợp lệ tiếp theo dựa trên giờ database. Phiên theo tab; mất phiên có thể mất ghế. Phòng hết hạn sau 48 giờ, chưa tự purge. Không nâng cấp gói Supabase hoặc chuyển region database.

@@ -1,6 +1,7 @@
-import { UserRound } from 'lucide-react'
-import type { CapturedPieceGroup } from '../types/chess'
-import { ChessPieceIcon, PIECE_NAMES } from './ChessPieceIcon'
+import { UserRound } from "lucide-react";
+import type { CapturedPieceGroup } from "../types/chess";
+import { ChessPieceIcon, PIECE_NAMES } from "./ChessPieceIcon";
+import type { ReactNode } from "react";
 
 export function CapturedPieces({
   captured,
@@ -10,18 +11,20 @@ export function CapturedPieces({
   isTurn,
   isSelf,
   color,
+  clock,
 }: {
-  captured: CapturedPieceGroup[]
-  materialAdvantage: number
-  playerName: string
-  subtitle: string
-  isTurn: boolean
-  isSelf: boolean
-  color: 'w' | 'b'
+  captured: CapturedPieceGroup[];
+  materialAdvantage: number;
+  playerName: string;
+  subtitle: string;
+  isTurn: boolean;
+  isSelf: boolean;
+  color: "w" | "b";
+  clock?: ReactNode;
 }) {
   return (
-    <div className={`player-bar ${isTurn ? 'active-player' : ''}`}>
-      <div className={`player-avatar ${isSelf ? '' : 'friend-avatar'}`}>
+    <div className={`player-bar ${isTurn ? "active-player" : ""}`}>
+      <div className={`player-avatar ${isSelf ? "" : "friend-avatar"}`}>
         <UserRound size={23} />
         <span className={`color-dot ${color}`} />
       </div>
@@ -34,22 +37,23 @@ export function CapturedPieces({
       </div>
       <div className="captured-pieces" aria-label="Quân đã bắt">
         {captured.map((group) => {
-          const label = `${group.count} ${PIECE_NAMES[group.type]} ${group.color === 'w' ? 'trắng' : 'đen'}`
+          const label = `${group.count} ${PIECE_NAMES[group.type]} ${group.color === "w" ? "trắng" : "đen"}`;
           return (
             <span key={group.type} title={label} role="img" aria-label={label}>
               <ChessPieceIcon type={group.type} color={group.color} />
               {group.count > 1 && <small>×{group.count}</small>}
             </span>
-          )
+          );
         })}
         {materialAdvantage > 0 && <b>+{materialAdvantage}</b>}
       </div>
-      {isTurn && (
+      {clock}
+      {!clock && isTurn && (
         <span className="turn-indicator">
           <i />
           Lượt đi
         </span>
       )}
     </div>
-  )
+  );
 }

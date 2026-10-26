@@ -351,7 +351,7 @@ test("a delayed presence read cannot undo a newer reconnection or clear the sele
   }
 });
 
-test("disconnection pauses play and leaving requires confirmation after a move", async ({
+test("disconnection keeps timed play available and leaving requires confirmation after a move", async ({
   browser,
 }) => {
   const { host, guest } = await players(browser);
@@ -363,7 +363,10 @@ test("disconnection pauses play and leaving requires confirmation after a move",
   await expect(
     host.getByText("Đợi nhau một chút nhé.", { exact: true }),
   ).toBeVisible();
-  await expect(host.locator('.board-piece[draggable="true"]')).toHaveCount(0);
+  await expect(host.getByTestId("clock-w")).toHaveClass(/running/);
+  await expect(host.locator('.board-piece[draggable="true"]')).not.toHaveCount(
+    0,
+  );
   await host.getByRole("button", { name: "Rời phòng", exact: true }).click();
   await host.getByRole("button", { name: "Ở lại bàn cờ", exact: true }).click();
   await count(host, 2);

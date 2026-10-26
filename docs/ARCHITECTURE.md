@@ -17,9 +17,9 @@ Giữ React/Vite trên GitHub Pages. Dùng Supabase cho Anonymous Auth, PostgreS
 
 Browser đăng nhập ẩn danh rồi gửi JWT đến `chess-rooms`. Handler gọi `auth.getUser()` để xác minh người dùng thực. Publishable key đứng riêng không được gửi thao tác chơi.
 
-- `POST { action: create, name, color }`: kiểm dữ liệu, tạo mã ngẫu nhiên và phòng. Giới hạn 20 phòng/UID/giờ được kiểm dưới advisory lock.
+- `POST { action: create, name, color, timeControl? }`: thời lượng 60/300/600 giây; thiếu trường này giữ phòng cũ không tính giờ. Giới hạn 20 phòng/UID/giờ được kiểm dưới advisory lock.
 - `POST { action: join, code, name }`: RPC khóa hàng `FOR UPDATE`, xác nhận hạn và ghế. Cùng UID có thể nối lại; người thứ ba bị từ chối. Hai yêu cầu cùng xin ghế cuối chỉ một yêu cầu được nhận.
-- `POST { action: command, code, id, round, ply, command }`: xác minh membership, lookup receipt, kiểm round/ply, dựng lại lịch sử và kiểm luật chess.js.
+- `POST { action: command, code, id, round, ply, command }`: `gambit_command_context` đọc phòng và receipt trong một RPC, kiểm round/ply, dựng lại lịch sử và kiểm luật chess.js.
 - Commit dưới khóa hàng kiểm lại membership, hiện diện, revision và receipt. Trùng ID/cùng fingerprint trả trạng thái hiện tại; trùng ID/khác payload bị từ chối. Revision cũ không được ghi đè.
 - Đấu lại cần hai phía đồng ý; tăng round, đặt lại lịch sử và đổi màu. Đầu hàng đồng bộ kết quả tới cả hai.
 
@@ -29,13 +29,27 @@ Gateway đặt `verify_jwt=false`; handler tự xác thực JWT trên mọi POST
 
 ## Đồng bộ và mất mạng
 
-Client chỉ hiển thị nước đi sau xác nhận từ server. Realtime Postgres Changes gửi row đã được RLS cho phép. Fallback đọc lại mỗi 3 giây; heartbeat mỗi 12 giây. Trình duyệt đọc trạng thái trực tiếp nhưng không viết board trực tiếp. Hiện diện được xem là hết hạn sau 45 giây; đóng trang gửi heartbeat offline bằng request keepalive. Phát hiện sự cố không được bảo đảm tức thì trên mọi thiết bị.
+Client hiển thị tạm nước hợp lệ của chính mình ngay, đánh dấu pending và giữ riêng board đã xác nhận. Đồng hồ vẫn hiển thị theo board đã xác nhận đến khi ACK. Realtime/ACK có revision mới thay thế dự đoán; lỗi trả board về trạng thái đã xác nhận rồi đọc lại. Lỗi đọc nền không được xóa cờ pending của một lệnh đang gửi. Người chơi không gửi lệnh tiếp khi còn pending.
+
+Realtime Postgres Changes gửi row đã được RLS cho phép. Fallback đọc lại mỗi 3 giây; heartbeat mỗi 12 giây. Trình duyệt không viết board trực tiếp. Hiện diện hết hạn sau 45 giây; đóng trang gửi heartbeat offline bằng keepalive. Toast vào/rời/trở lại bàn được gộp trong 900ms để giảm nhấp nháy do reload. Mất mạng đột ngột có thể chỉ được phát hiện khi hết TTL. Quay lại tab/online gửi heartbeat ngay để đồng bộ lại giờ và hiện diện.
 
 Chỉ replay board khi revision thay đổi; cập nhật hiện diện không dựng lại lịch sử. Những phản hồi của kết nối cũ bị loại theo generation. Nước đi có pending ID để phản hồi cũ không ghi đè một thao tác mới.
 
 Với cùng phòng, timestamp hiện diện của từng ghế chỉ tiến về phía trước khi nhận HTTP/Realtime. Một thông báo offline đến muộn không được ghi đè heartbeat mới hơn; row có revision cũ bị bỏ qua.
 
 Một ván giới hạn 2048 nửa nước. Phòng hết hạn sau 48 giờ; chưa tự purge dữ liệu hết hạn. Mất mạng sau khi server nhận yêu cầu tạo phòng có thể để lại phòng chưa sử dụng; dữ liệu ván đã được xác nhận không phụ thuộc vào trình duyệt chủ phòng tiếp tục mở.
+
+## Đồng hồ và âm thanh
+
+`game.clock` chứa `initialMs`, `whiteMs`, `blackMs`, `runningSince` theo epoch milliseconds. Không thêm clock vào phòng cũ. Lần ghép ghế thứ hai đặt mốc bắt đầu bằng giờ database; reconnect không đặt lại mốc. Không cộng thời gian sau nước đi.
+
+`gambit_commit_command_v2` khóa hàng rồi dùng `clock_timestamp()` trừ giờ của bên đang đi. Nếu cờ rơi trước khi lấy được khóa, giữ board cũ và ghi `game.timeout`; không nhận nước tới muộn dù Edge đã kiểm luật trước đó. `claim-timeout` của bất kỳ thành viên nào có thể chốt kết quả khi đối thủ offline; claim sớm trả 409. Không cần ghi database mỗi giây. Khi cả hai offline, kết quả được chốt ở lần yêu cầu hợp lệ tiếp theo dựa trên thời gian đã trôi qua.
+
+Timed play tiếp tục khi đối thủ offline; đấu lại vẫn cần đồng thuận và cả hai online. Ván kết thúc dừng clock; rematch reset cùng preset và đổi màu. Hết giờ hòa nếu đối phương chỉ còn vua hoặc engine xác nhận thiếu quân chiếu bí. PGN có `TimeControl` và `Termination` cho timeout.
+
+Đồng hồ UI tick ở component riêng mỗi 100ms, không render lại bàn cờ theo tick; dùng mốc server cộng `performance.now()`, đồng bộ qua snapshot/heartbeat. Kết quả luôn do server quyết định, không tin giờ máy khách. Web Audio được mở khóa ở thao tác pointer/key đầu tiên; mute tắt master gain và không tạo nốt mới. ACK cùng số nước không phát lại âm thanh của nước đã hiển thị tạm.
+
+Frontend gửi `x-region` theo `VITE_SUPABASE_FUNCTION_REGION` để hàm chạy gần database; handler công khai `Server-Timing` auth/read/commit/total cho phép đo. [Hướng dẫn Supabase về region](https://supabase.com/docs/guides/functions/regional-invocation).
 
 ## Triển khai và hồi phục
 

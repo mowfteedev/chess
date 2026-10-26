@@ -3,6 +3,7 @@ import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import type { Color } from "../types/chess";
 import {
   cleanName,
+  clockRemaining,
   initialGame,
   isGameState,
   isRoomRecord,
@@ -15,6 +16,8 @@ import {
   type RoomRecord,
   type RoomSnapshot,
   type RoomState,
+  type GameState,
+  type TimeControl,
 } from "./protocol";
 
 const STORAGE_KEY = "gambit:room:v2";
@@ -26,6 +29,8 @@ const initial = (): RoomState => ({
   myColor: "w",
   error: null,
   pendingMove: false,
+  opponentPresent: false,
+  hasGuest: false,
 });
 class RoomError extends Error {
   constructor(
@@ -46,10 +51,15 @@ export class RoomClient {
   private accessToken = "";
   private url = "";
   private key = "";
+  private region = "";
   private generation = 0;
   private revision = -1;
   private row?: RoomRecord;
-  private clockOffset = 0;
+  private serverTimestamp = Date.now();
+  private serverObservedAt = performance.now();
+  private confirmedGame?: GameState;
+  private optimistic = false;
+  private nextTimeoutClaim = 0;
   private interval?: ReturnType<typeof setInterval>;
   private refreshPending = false;
   private heartbeatPending = false;
@@ -64,6 +74,20 @@ export class RoomClient {
     };
   };
   getSnapshot = () => this.state;
+  clockGame = (): GameState =>
+    this.optimistic && this.confirmedGame ? this.confirmedGame : this.state;
+  serverNow = () =>
+    this.serverTimestamp + performance.now() - this.serverObservedAt;
+  private syncTime(timestamp: number, elapsed = 0) {
+    this.serverTimestamp = timestamp + Math.min(Math.max(0, elapsed / 2), 150);
+    this.serverObservedAt = performance.now();
+  }
+  private rollback() {
+    if (!this.optimistic || !this.confirmedGame) return;
+    this.optimistic = false;
+    this.chess = replayGame(this.confirmedGame);
+    this.update({ ...this.confirmedGame, pendingMove: false });
+  }
   private update(patch: Partial<RoomState>) {
     this.state = { ...this.state, ...patch };
     this.listeners.forEach((listener) => listener());
@@ -78,6 +102,7 @@ export class RoomClient {
     }
   }
   private stop() {
+    this.rollback();
     this.generation++;
     clearInterval(this.interval);
     this.pendingCommand = undefined;
@@ -114,6 +139,9 @@ export class RoomClient {
     this.row = undefined;
     this.revision = -1;
     this.entry = undefined;
+    this.confirmedGame = undefined;
+    this.optimistic = false;
+    this.nextTimeoutClaim = 0;
     this.chess = new Chess();
     try {
       sessionStorage.removeItem(STORAGE_KEY);
@@ -145,7 +173,7 @@ export class RoomClient {
       /* Invalid local state is ignored; server membership remains authoritative. */
     }
   };
-  create = (name: string, color: Color) => {
+  create = (name: string, color: Color, timeControl: TimeControl = 300) => {
     this.leave();
     this.update({
       role: "host",
@@ -154,7 +182,10 @@ export class RoomClient {
       hostColor: color,
       myColor: color,
     });
-    this.entry = { action: "create", input: { name: cleanName(name), color } };
+    this.entry = {
+      action: "create",
+      input: { name: cleanName(name), color, timeControl },
+    };
     void this.connect(this.entry.action, this.entry.input);
   };
   join = (code: string, name: string) => {
@@ -177,6 +208,7 @@ export class RoomClient {
     this.client = module.supabase;
     this.url = module.supabaseUrl!;
     this.key = module.supabaseKey!;
+    this.region = module.supabaseRegion;
     const { data, error } = await this.client.auth.getSession();
     if (error) throw error;
     let session = data.session;
@@ -216,12 +248,15 @@ export class RoomClient {
         "Phiên chơi đã hết hạn. Bạn kết nối lại nhé.",
       );
     this.accessToken = data.session.access_token;
+    const started = performance.now();
+    const generation = this.generation;
     const response = await fetch(`${this.url}/functions/v1/chess-rooms`, {
       method: "POST",
       headers: {
         apikey: this.key,
         Authorization: `Bearer ${this.accessToken}`,
         "Content-Type": "application/json",
+        ...(this.region ? { "x-region": this.region } : {}),
       },
       body: JSON.stringify(action),
       signal: AbortSignal.timeout(15000),
@@ -243,6 +278,11 @@ export class RoomClient {
       typeof snapshot.guestPresent !== "boolean"
     )
       throw new Error("Invalid room snapshot");
+    if (
+      generation === this.generation &&
+      typeof snapshot.serverNow === "number"
+    )
+      this.syncTime(snapshot.serverNow, performance.now() - started);
     return snapshot;
   }
   private apply(snapshot: RoomSnapshot, acknowledged = false) {
@@ -252,16 +292,20 @@ export class RoomClient {
     )
       return;
     const changed = snapshot.revision !== this.revision;
-    if (changed) {
+    if (changed || acknowledged) {
       this.chess = replayGame(snapshot.game);
       this.revision = snapshot.revision;
+      this.confirmedGame = snapshot.game;
+      this.optimistic = false;
+      if (changed) this.pendingCommand = undefined;
     }
     const myColor =
       snapshot.role === "host"
         ? snapshot.game.hostColor
         : opposite(snapshot.game.hostColor);
     const hasGuest =
-      snapshot.game.guestName !== "Bạn chơi" || this.row?.guest_uid != null;
+      snapshot.hasGuest ??
+      (snapshot.game.guestName !== "Bạn chơi" || this.row?.guest_uid != null);
     const status =
       snapshot.hostPresent && snapshot.guestPresent
         ? "connected"
@@ -270,10 +314,13 @@ export class RoomClient {
           : "reconnecting";
     this.credentials = { code: snapshot.code, role: snapshot.role };
     this.update({
-      ...(changed ? snapshot.game : {}),
+      ...(changed || acknowledged ? snapshot.game : {}),
       code: snapshot.code,
       role: snapshot.role,
       myColor,
+      hasGuest,
+      opponentPresent:
+        snapshot.role === "host" ? snapshot.guestPresent : snapshot.hostPresent,
       status,
       error: null,
       pendingMove: changed || acknowledged ? false : this.state.pendingMove,
@@ -304,12 +351,13 @@ export class RoomClient {
       }
     }
     this.row = row;
-    this.apply(roomSnapshot(row, this.userId, Date.now() + this.clockOffset));
+    this.apply(roomSnapshot(row, this.userId, this.serverNow()));
   }
   private async touch(online = true) {
     if (!this.client || !this.credentials || this.heartbeatPending) return;
     this.heartbeatPending = true;
     const generation = this.generation;
+    const started = performance.now();
     try {
       const { data, error } = await this.client.rpc("gambit_heartbeat", {
         p_code: this.credentials.code,
@@ -320,7 +368,8 @@ export class RoomClient {
       if (isRoomRecord(data)) {
         const selfSeen =
           this.userId === data.host_uid ? data.host_seen : data.guest_seen;
-        if (selfSeen) this.clockOffset = Date.parse(selfSeen) - Date.now();
+        if (selfSeen)
+          this.syncTime(Date.parse(selfSeen), performance.now() - started);
       }
       this.applyRow(data);
     } finally {
@@ -408,7 +457,6 @@ export class RoomClient {
           if (generation === this.generation)
             this.update({
               status: "reconnecting",
-              pendingMove: false,
               error:
                 error instanceof RoomError
                   ? error.message
@@ -433,11 +481,13 @@ export class RoomClient {
     }
   }
   command = (command: Command) => {
-    if (
-      this.state.status !== "connected" ||
-      this.state.pendingMove ||
-      !this.credentials
-    )
+    const ownConnectionReady =
+      this.state.status === "connected" ||
+      (this.state.status === "reconnecting" &&
+        !this.state.error &&
+        this.state.hasGuest &&
+        Boolean(this.state.clock));
+    if (!ownConnectionReady || this.state.pendingMove || !this.credentials)
       return false;
     const generation = this.generation;
     const body = {
@@ -449,7 +499,36 @@ export class RoomClient {
       command,
     };
     this.pendingCommand = body.id;
-    this.update({ pendingMove: true, error: null });
+    if (command.kind === "move") {
+      try {
+        const chess = replayGame(this.confirmedGame ?? this.state);
+        chess.move({
+          ...command.move,
+          promotion: command.move.promotion ?? "q",
+        });
+        const now = this.serverNow();
+        const remaining = clockRemaining(this.state, now);
+        const clock = this.state.clock
+          ? {
+              ...this.state.clock,
+              whiteMs: remaining.w,
+              blackMs: remaining.b,
+              runningSince: chess.isGameOver() ? null : now,
+            }
+          : this.state.clock;
+        this.chess = chess;
+        this.optimistic = true;
+        this.update({
+          moves: chess.history(),
+          clock,
+          pendingMove: true,
+          error: null,
+        });
+      } catch {
+        this.pendingCommand = undefined;
+        return false;
+      }
+    } else this.update({ pendingMove: true, error: null });
     void this.request(body)
       .then((snapshot) => {
         if (generation === this.generation && this.pendingCommand === body.id) {
@@ -460,6 +539,7 @@ export class RoomClient {
       .catch(async (error) => {
         if (generation !== this.generation || this.pendingCommand !== body.id)
           return;
+        this.rollback();
         try {
           await this.refresh();
         } catch {
@@ -469,10 +549,15 @@ export class RoomClient {
           this.update({
             pendingMove: false,
             error:
-              error instanceof RoomError
-                ? error.message
-                : "Chưa gửi được nước đi. Bạn kiểm tra mạng rồi thử lại nhé.",
+              command.kind === "claim-timeout" &&
+              error instanceof RoomError &&
+              error.code === "clock_running"
+                ? null
+                : error instanceof RoomError
+                  ? error.message
+                  : "Chưa gửi được nước đi. Bạn kiểm tra mạng rồi thử lại nhé.",
           });
+        if (this.pendingCommand === body.id) this.pendingCommand = undefined;
       });
     return true;
   };
@@ -480,9 +565,28 @@ export class RoomClient {
     if (
       this.chess.turn() !== this.state.myColor ||
       this.chess.isGameOver() ||
-      this.state.resignation
+      this.state.resignation ||
+      this.state.timeout ||
+      (this.state.clock &&
+        clockRemaining(this.state, this.serverNow())[this.state.myColor] <= 0)
     )
       return false;
     return this.command({ kind: "move", move });
+  };
+  claimTimeout = () => {
+    const now = performance.now();
+    if (
+      now < this.nextTimeoutClaim ||
+      this.state.pendingMove ||
+      this.state.timeout ||
+      this.state.resignation
+    )
+      return;
+    this.nextTimeoutClaim = now + 1500;
+    this.command({ kind: "claim-timeout" });
+  };
+  wake = () => {
+    if (this.credentials && this.client && this.state.status !== "idle")
+      void this.touch().catch(() => {});
   };
 }

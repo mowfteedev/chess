@@ -6,12 +6,14 @@ Tạo phòng, chia sẻ mã/link và chơi cờ với một người bạn trên
 
 ## Chơi cùng nhau
 
-1. Chọn **Tạo phòng mới**, nhập tên tùy chọn và chọn màu quân.
+1. Chọn **Tạo phòng mới**, nhập tên, chọn màu quân và **1, 5 hoặc 10 phút mỗi bên** (mặc định 5 phút).
 2. Gửi mã 6 ký tự hoặc link mời. Người thứ hai mở link hoặc chọn **Tham gia phòng**.
-3. Mỗi người chỉ đi quân của mình; máy chủ xác minh và lưu nước đi trước khi gửi cập nhật.
-4. Đấu lại cần người còn lại đồng ý, sau đó hai người đổi màu quân.
+3. Mỗi người chỉ đi quân của mình. Quân phản hồi ngay trên máy người đi; máy chủ xác minh trước khi gửi cho đối thủ. Nước bị từ chối được trả về trạng thái đã xác nhận.
+4. Đồng hồ bắt đầu khi đủ hai người, không cộng giây sau mỗi nước. Hết giờ được máy chủ xác nhận. Đấu lại cần đồng ý, đổi màu và đặt lại cùng thời lượng.
 
-Có chọn quân bằng chạm/nhấn, kéo thả, bàn phím, nhập thành, bắt tốt qua đường, phong cấp, chiếu bí/hòa, đầu hàng và tải PGN. Phòng tạm dừng khi phát hiện một bên ngoại tuyến. Phiên ẩn danh được giữ theo tab để hỗ trợ reload; đóng tab hoặc xóa phiên có thể mất quyền vào lại ghế. Phòng nhận thao tác trong 48 giờ từ lúc tạo; dữ liệu hết hạn chưa được tự động xóa.
+Có chọn quân bằng chạm/nhấn, kéo thả, bàn phím, nhập thành, bắt tốt qua đường, phong cấp, chiếu bí/hòa, đầu hàng và tải PGN. Thông báo cho biết ai vào/rời/trở lại bàn; âm thanh cho nước đi, bắt quân, chiếu, lượt của bạn và kết thúc ván, có nút tắt/bật.
+
+**Ván tính giờ vẫn chạy khi mất kết nối.** Người còn kết nối có thể đi đúng lượt của mình. Phòng cũ không tính giờ vẫn giữ cách tạm dừng trước đây. Phiên ẩn danh được giữ theo tab để hỗ trợ reload; đóng tab hoặc xóa phiên có thể mất quyền vào lại ghế. Phòng nhận thao tác trong 48 giờ từ lúc tạo; dữ liệu hết hạn chưa được tự động xóa.
 
 ## Hosting và kết nối
 
@@ -46,7 +48,7 @@ npm run preview
 
 Bật Anonymous Sign-ins trên project Supabase. E2E tự khởi động stack riêng `gambit-chess-test`, API `127.0.0.1:56321`, áp dụng migration cục bộ và tạo `.env.test.local` được Git bỏ qua. Test dùng PostgreSQL, Auth, Realtime và Edge Runtime thật; các ca nhiều người chặn API WebRTC để xác minh game không cần P2P. Preview test ở `127.0.0.1:4174`.
 
-Sau E2E, chạy `npm run build` để tạo artifact production. GitHub Actions thực hiện đúng thứ tự này; bước build cuối lấy `VITE_SUPABASE_URL` và `VITE_SUPABASE_PUBLISHABLE_KEY` từ repository variables. Không đưa khóa quản trị Supabase vào GitHub Pages.
+Sau E2E, chạy `npm run build` để tạo artifact production. GitHub Actions lấy `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` và `VITE_SUPABASE_FUNCTION_REGION` từ repository variables. Region đặt theo database (project hiện tại: `ap-southeast-2`, Sydney) để giảm các lượt đi mạng giữa hàm và database. Không đưa khóa quản trị Supabase vào GitHub Pages.
 
 ## Triển khai backend
 
