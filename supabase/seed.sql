@@ -1,1 +1,0 @@
--- No seed data: each test creates its own isolated rooms.

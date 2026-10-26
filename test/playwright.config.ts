@@ -1,6 +1,10 @@
 import { defineConfig } from '@playwright/test'
+import { fileURLToPath } from 'node:url'
+
+const projectRoot = fileURLToPath(new URL('../', import.meta.url))
 export default defineConfig({
-  testDir: './test/e2e',
+  testDir: './e2e',
+  outputDir: './test-results',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
@@ -14,6 +18,7 @@ export default defineConfig({
   },
   webServer: [
     {
+      cwd: projectRoot,
       command:
         'node_modules/.bin/supabase --agent no --output-format text functions serve chess-rooms',
       url: 'http://127.0.0.1:56321/functions/v1/chess-rooms',
@@ -22,6 +27,7 @@ export default defineConfig({
       timeout: 120000,
     },
     {
+      cwd: projectRoot,
       command:
         'npm run build -- --mode test && npm run preview -- --host 127.0.0.1 --port 4174 --strictPort',
       url: 'http://127.0.0.1:4174',

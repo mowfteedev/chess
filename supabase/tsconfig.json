@@ -12,5 +12,5 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["supabase/functions/**/*.ts"]
+  "include": ["functions/**/*.ts"]
 }

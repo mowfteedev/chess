@@ -27,7 +27,7 @@ npm run build    # Build production sau E2E
 
 Push `main` để GitHub Actions kiểm tra và deploy GitHub Pages. Khai báo repository variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_FUNCTION_REGION`. Chỉ dùng public key ở frontend.
 
-Giao diện nằm trong `src/`, backend và migration trong `supabase/`, kiểm thử trong `test/`. Xem [kiến trúc và cách triển khai backend](docs/ARCHITECTURE.md).
+Giao diện nằm trong `src/`, backend và migration trong `supabase/`, kiểm thử và cấu hình Playwright trong `test/`.
 
 Máy cá nhân không cần bật. Supabase Free có thể [tạm dừng project ít hoạt động](https://supabase.com/docs/guides/platform/free-project-pausing); khôi phục bằng **Resume project** trong dashboard.
 

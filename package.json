@@ -5,11 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit -p tsconfig.app.json && npm run check:server && vite build",
+    "build": "tsc --noEmit -p tsconfig.json && npm run check:server && vite build",
     "preview": "vite preview",
     "test": "node --test test/chess.test.js",
-    "test:e2e": "node scripts/prepare-test-supabase.mjs && playwright test",
-    "check:server": "tsc --noEmit -p tsconfig.server.json"
+    "test:e2e": "node test/prepare-supabase.mjs && playwright test --config test/playwright.config.ts",
+    "check:server": "tsc --noEmit -p supabase/tsconfig.json"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
