@@ -1,6 +1,8 @@
-# Tự kiểm tra — đồng hồ, âm thanh và phản hồi
+# Tự kiểm tra — bản chốt Gambit
 
-Ngày 26/10/2026, thay đổi dựa trên `351317a`. Kiểm tra do cùng nhóm triển khai thực hiện; không phải nghiệm thu độc lập.
+Ngày 27/10/2026, bản chốt dựa trên `fce4ae2`. Kiểm tra do cùng người triển khai thực hiện; không phải nghiệm thu độc lập.
+
+Phạm vi: tách `App.tsx` từ 1.022 xuống 283 dòng, tách màn hình/hộp thoại/khung trang, chia CSS theo chức năng, bỏ 12 PNG không còn caller. Tinh chỉnh sảnh màu kem, chữ serif, chi tiết vàng trầm, chiều sâu bàn cờ và trạng thái đồng hồ. Toast mobile chuyển lên vùng header để tránh che quân và đồng hồ. Nội dung trạng thái chờ ACK được ưu tiên trước kết quả tạm. Không đổi schema, giao thức hoặc backend Supabase.
 
 ## Kết quả
 
@@ -18,9 +20,9 @@ Ngày 26/10/2026, thay đổi dựa trên `351317a`. Kiểm tra do cùng nhóm t
 | Hồi quy cờ và cache   | Chiếu bí, nhập thành, bắt qua đường, phong cấp/hủy, PGN, keyboard, reload, cập nhật có xác nhận                     | PASS    |
 | Responsive            | 320/390/768/1440px; tên dài và đồng hồ không tràn ngang; tiện ích chạm ≥44px                                        | PASS    |
 
-Quét Axe trên 8 trạng thái (sảnh 320px, setup thời gian 320px, phòng chờ, desktop có đồng hồ/toast, game 320px tên dài, game 390px, màu bàn và biên bản mobile): không có vi phạm tự động, không có lỗi JavaScript. Chờ animation dialog kết thúc trước khi quét. Ảnh game desktop/mobile trong `docs/screenshots` phản ánh bản này. Đây không phải chứng nhận WCAG.
+Quét Axe trên 10 trạng thái (sảnh desktop/320px, setup thời gian 320px, phòng chờ, tham gia 320px, desktop có đồng hồ/toast, game 320px tên dài, game 390px, màu bàn và biên bản mobile): không có vi phạm tự động, không có lỗi JavaScript. Chờ animation dialog kết thúc trước khi quét. Ảnh game desktop/mobile trong `docs/screenshots` phản ánh bản này. Đây không phải chứng nhận WCAG.
 
-## Đo độ trễ
+## Đo độ trễ ở bản trước (`fce4ae2`, 26/10/2026)
 
 Một ván QA, 10 nửa nước hợp lệ; bỏ 2 nước đầu làm warm-up, lấy 8 mẫu, cùng Chromium/Linux và đường mạng. Đo từ thao tác ô đích tới UI của người đi và đối thủ; bao gồm overhead thao tác Playwright. Trước: frontend GitHub Pages ở `351317a`; sau: preview production cục bộ dùng **Supabase cloud thật**. Khác origin frontend nên không dùng số liệu này để so tốc độ tải trang.
 
@@ -32,7 +34,7 @@ Một ván QA, 10 nửa nước hợp lệ; bỏ 2 nước đầu làm warm-up, 
 | Đối thủ, p95 trên 8 mẫu  | 3.344 ms               | 979 ms                                        |
 | Region hàm quan sát được | Seoul `ap-northeast-2` | Sydney `ap-southeast-2`, cùng region database |
 
-[Raw samples](performance/rooms-20261026.json), script tái lập: `node scripts/measure-room-latency.mjs <frontend-url> [label]`. Script tạo một phòng QA và đi 10 nửa nước, không phải load test. Bản sau vẫn có cold start: yêu cầu tạo phòng đầu sau deploy mất khoảng 6,1 giây. Tối ưu phản hồi cục bộ không có nghĩa server đã xác nhận ngay. Không ngoại suy p95 từ 8 mẫu thành cam kết cho mọi mạng hay sức tải.
+[Raw samples](performance/rooms-20261026.json), script tái lập: `node scripts/measure-room-latency.mjs <frontend-url> [label]`. Script tạo một phòng QA và đi 10 nửa nước, không phải load test. Bản sau vẫn có cold start: yêu cầu tạo phòng đầu sau deploy mất khoảng 6,1 giây. Tối ưu phản hồi cục bộ không có nghĩa server đã xác nhận ngay. Không ngoại suy p95 từ 8 mẫu thành cam kết cho mọi mạng hay sức tải. Đây là số đo của bản thêm đồng hồ; bản chốt chỉ thay cấu trúc/giao diện và không tuyên bố tăng tốc thêm.
 
 ## Migration và giới hạn
 

@@ -1,34 +1,53 @@
-import { ArrowRight, Plus, LogIn, Link2, Users, ArrowUpRight } from 'lucide-react'
-import { ChessPieceIcon } from './ChessPieceIcon'
-import type { PieceType } from '../types/chess'
+import {
+  ArrowRight,
+  Plus,
+  LogIn,
+  Link2,
+  Users,
+  ArrowUpRight,
+  Clock3,
+} from "lucide-react";
+import { ChessPieceIcon } from "./ChessPieceIcon";
+import type { PieceType } from "../types/chess";
 
 function BoardIllustration() {
-  const pieces: Record<string, { type: PieceType; color: 'w' | 'b' }> = {
-    '0-6': { type: 'k', color: 'b' },
-    '1-5': { type: 'p', color: 'b' },
-    '1-7': { type: 'p', color: 'b' },
-    '2-3': { type: 'n', color: 'b' },
-    '3-4': { type: 'p', color: 'w' },
-    '4-2': { type: 'n', color: 'w' },
-    '5-5': { type: 'p', color: 'w' },
-    '6-1': { type: 'p', color: 'w' },
-    '6-6': { type: 'k', color: 'w' },
-    '7-0': { type: 'r', color: 'w' },
-  }
+  const pieces: Record<string, { type: PieceType; color: "w" | "b" }> = {
+    "0-6": { type: "k", color: "b" },
+    "1-5": { type: "p", color: "b" },
+    "1-7": { type: "p", color: "b" },
+    "2-3": { type: "n", color: "b" },
+    "3-4": { type: "p", color: "w" },
+    "4-2": { type: "n", color: "w" },
+    "5-5": { type: "p", color: "w" },
+    "6-1": { type: "p", color: "w" },
+    "6-6": { type: "k", color: "w" },
+    "7-0": { type: "r", color: "w" },
+  };
   return (
     <div className="lobby-illustration" aria-hidden="true">
       <div className="illustration-orbit orbit-one" />
       <div className="illustration-orbit orbit-two" />
+      <span className="illustration-time">
+        <Clock3 size={13} />1 · 5 · 10 phút
+      </span>
+      <div className="illustration-stamp">
+        <span>64</span>
+        <small>
+          Ô CỜ
+          <br />
+          MỘT CUỘC HẸN
+        </small>
+      </div>
       <div className="illustration-board">
         {Array.from({ length: 64 }, (_, index) => {
           const row = Math.floor(index / 8),
-            column = index % 8
-          const piece = pieces[`${row}-${column}`]
+            column = index % 8;
+          const piece = pieces[`${row}-${column}`];
           return (
-            <span key={index} className={(row + column) % 2 ? 'dark' : 'light'}>
+            <span key={index} className={(row + column) % 2 ? "dark" : "light"}>
               {piece && <ChessPieceIcon {...piece} />}
             </span>
-          )
+          );
         })}
       </div>
       <span className="illustration-label">
@@ -43,10 +62,16 @@ function BoardIllustration() {
         <ArrowUpRight size={17} />
       </div>
     </div>
-  )
+  );
 }
 
-export function Lobby({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => void }) {
+export function Lobby({
+  onCreate,
+  onJoin,
+}: {
+  onCreate: () => void;
+  onJoin: () => void;
+}) {
   return (
     <main className="lobby-main" id="main">
       <section className="lobby-hero">
@@ -58,11 +83,13 @@ export function Lobby({ onCreate, onJoin }: { onCreate: () => void; onJoin: () =
           <h1>
             Một lời mời.
             <br />
-            Một ván cờ<span>.</span>
+            <em>Một ván cờ</em>
+            <span>.</span>
           </h1>
           <p>
             Khoảng cách không quan trọng.
-            <br className="desktop-break" /> Chỉ cần một người bạn và một nước đi đầu tiên.
+            <br className="desktop-break" /> Chỉ cần một người bạn và một nước
+            đi đầu tiên.
           </p>
           <div className="lobby-benefits">
             <span>
@@ -126,9 +153,9 @@ export function Lobby({ onCreate, onJoin }: { onCreate: () => void; onJoin: () =
         </button>
       </section>
       <div className="lobby-bottom-note">
-        <span className="small-star">✦</span>Không cần tài khoản. Chọn nhịp chơi. Cùng tận hưởng ván
-        cờ.
+        <span className="small-star">✦</span>Không cần tài khoản. Chọn nhịp
+        chơi. Cùng tận hưởng ván cờ.
       </div>
     </main>
-  )
+  );
 }

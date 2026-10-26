@@ -2,6 +2,8 @@
 
 Tạo phòng, chia sẻ mã/link và chơi cờ với một người bạn trên thiết bị khác. **[Mở game trên GitHub Pages](https://mowfteedev.github.io/chess/)**. Chỉ chơi giữa người với người, không có đối thủ máy.
 
+[Hướng dẫn bàn giao và bảo trì](docs/HANDOFF.md) · [Kiến trúc](docs/ARCHITECTURE.md)
+
 ![Sảnh Gambit](docs/screenshots/desktop.png)
 
 ## Chơi cùng nhau
@@ -30,6 +32,10 @@ Xem [kiến trúc và contract](docs/ARCHITECTURE.md). Khóa publishable dùng �
 Bàn cờ dùng gần hết chiều rộng; tiện ích có vùng chạm ≥44px. Màu bàn và biên bản mở trong hộp thoại. Input cỡ 16px, cho phép zoom, hỗ trợ safe area dưới và reduced motion.
 
 [Ảnh sảnh mobile](docs/screenshots/lobby-mobile.png) · [Ván mobile](docs/screenshots/mobile.png) · [Ván desktop](docs/screenshots/game-desktop.png)
+
+## Cấu trúc mã nguồn
+
+`App.tsx` điều phối luồng chung; các màn hình và hộp thoại nằm trong `components/room`, khung trang trong `components/layout`, trạng thái hộp thoại trong `useRoomDialogs`. CSS chia theo chức năng trong `src/styles`; `index.css` chỉ khai báo thứ tự import. Luật, đồng bộ và backend giữ ranh giới riêng.
 
 ## Chạy và kiểm tra
 

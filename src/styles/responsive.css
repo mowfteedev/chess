@@ -1,0 +1,595 @@
+@media (min-width: 1500px) {
+  .lobby-main {
+    padding-top: 65px;
+  }
+  .lobby-choices {
+    margin-top: 55px;
+  }
+  .lobby-hero {
+    min-height: 390px;
+  }
+  .lobby-intro h1 {
+    font-size: 72px;
+  }
+  .lobby-illustration {
+    height: 390px;
+  }
+  .illustration-board {
+    width: 315px;
+  }
+}
+@media (max-width: 1100px) {
+  .game-layout {
+    gap: 25px;
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+  .room-info-panel {
+    padding: 17px;
+  }
+  .play-main {
+    padding-inline: 24px;
+  }
+  .lobby-hero {
+    gap: 20px;
+  }
+  .lobby-intro h1 {
+    font-size: 58px;
+  }
+  .illustration-board {
+    width: 255px;
+  }
+  .illustration-invite {
+    right: 5px;
+  }
+}
+@media (max-width: 850px) {
+  .header-tagline {
+    display: none;
+  }
+  .lobby-hero {
+    grid-template-columns: 1fr 280px;
+  }
+  .lobby-intro h1 {
+    font-size: 49px;
+  }
+  .lobby-benefits {
+    gap: 10px;
+    font-size: 8px;
+  }
+  .lobby-illustration {
+    height: 300px;
+  }
+  .illustration-board {
+    width: 218px;
+  }
+  .illustration-invite {
+    bottom: 29px;
+    padding: 10px;
+  }
+  .illustration-label {
+    display: none;
+  }
+  .game-layout {
+    grid-template-columns: 1fr;
+  }
+  .game-sidebar {
+    display: none;
+  }
+  .board-column {
+    max-width: 560px;
+  }
+  .mobile-result-action {
+    display: block;
+    max-width: 560px;
+    margin: 20px auto 0;
+  }
+}
+@media (max-width: 600px) {
+  .site-header {
+    min-height: 72px;
+    padding: 16px 20px;
+    gap: 10px;
+  }
+  .brand {
+    font-size: 31px;
+    gap: 5px;
+  }
+  .brand-mark {
+    width: 28px;
+    height: 34px;
+  }
+  .brand-mark svg {
+    width: 30px;
+    height: 34px;
+  }
+  .help-button {
+    min-height: 40px;
+    font-size: 10px;
+    gap: 6px;
+    padding: 9px;
+  }
+  .lobby-main {
+    padding: 29px 20px 0;
+  }
+  .lobby-hero {
+    display: block;
+    min-height: 0;
+  }
+  .lobby-illustration {
+    display: none;
+  }
+  .lobby-intro {
+    text-align: center;
+  }
+  .lobby-intro .eyebrow {
+    justify-content: center;
+    font-size: 7px;
+    letter-spacing: 1.4px;
+  }
+  .lobby-intro h1 {
+    font-size: 45px;
+    line-height: 1.08;
+    margin: 18px 0 14px;
+    letter-spacing: -1.8px;
+  }
+  .lobby-intro > p {
+    font-size: 11px;
+    line-height: 1.85;
+  }
+  .desktop-break {
+    display: none;
+  }
+  .lobby-benefits {
+    justify-content: center;
+    gap: 11px;
+    margin-top: 19px;
+    font-size: 8px;
+  }
+  .lobby-benefits svg {
+    width: 13px;
+    height: 13px;
+  }
+  .lobby-choices {
+    grid-template-columns: 1fr;
+    gap: 13px;
+    margin-top: 26px;
+  }
+  .lobby-choice {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    column-gap: 16px;
+    align-content: center;
+    min-height: 149px;
+    padding: 22px 20px;
+    border-radius: 9px;
+  }
+  .choice-top {
+    grid-row: 1 / span 2;
+    margin: 0;
+    align-self: start;
+  }
+  .choice-icon {
+    width: 43px;
+    height: 44px;
+  }
+  .choice-number {
+    position: absolute;
+    right: 15px;
+    top: 11px;
+    font-size: 14px;
+  }
+  .lobby-choice h2 {
+    font-size: 24px;
+    padding-right: 10px;
+    line-height: 1.25;
+    letter-spacing: -0.6px;
+  }
+  .lobby-choice > p {
+    font-size: 10px;
+    line-height: 1.8;
+    margin: 8px 0 0;
+    padding-right: 18px;
+  }
+  .choice-action {
+    font-size: 0;
+    position: absolute;
+    right: 18px;
+    bottom: 24px;
+    width: auto;
+    border: 0;
+    padding: 0;
+  }
+  .choice-action svg {
+    width: 19px;
+  }
+  .lobby-bottom-note {
+    font-size: 8px;
+    gap: 7px;
+    padding: 22px 0 0;
+    line-height: 1.7;
+    text-align: center;
+  }
+  .lobby-bottom-note > span {
+    font-size: 12px;
+  }
+  .site-footer {
+    width: calc(100% - 40px);
+    margin-top: 28px;
+    padding: 17px 0 calc(17px + env(safe-area-inset-bottom));
+    font-size: 8px;
+  }
+  .site-footer > div {
+    gap: 10px;
+  }
+  .footer-love {
+    display: none;
+  }
+  .build-version {
+    font-size: 9px;
+    min-height: 30px;
+  }
+  .dialog {
+    width: calc(100% - 24px);
+    padding: 34px 22px 22px;
+    max-height: calc(100svh - 24px);
+  }
+  .dialog h2 {
+    font-size: 28px;
+  }
+  .dialog-description {
+    font-size: 12px;
+  }
+  .dialog-close {
+    width: 44px;
+    height: 44px;
+    top: 3px;
+    right: 3px;
+  }
+  .entry-form input {
+    min-height: 51px;
+  }
+  .entry-form label {
+    font-size: 13px;
+  }
+  .choose-color button {
+    padding: 10px 7px;
+    gap: 6px;
+  }
+  .choose-color button > svg:first-child {
+    width: 30px;
+  }
+  .choose-color button span {
+    font-size: 11px;
+  }
+  .choose-color button small {
+    font-size: 7px;
+  }
+  .primary-button {
+    min-height: 49px;
+    padding: 15px;
+  }
+  .theme-swatch {
+    width: 44px;
+    height: 44px;
+  }
+  .waiting-main {
+    padding: 17px 20px;
+  }
+  .back-to-lobby {
+    margin-bottom: 13px;
+  }
+  .waiting-card {
+    padding: 29px 22px 25px;
+  }
+  .waiting-icon {
+    width: 66px;
+    height: 66px;
+    margin-bottom: 20px;
+  }
+  .waiting-card h1 {
+    font-size: 31px;
+    margin: 14px 0;
+  }
+  .waiting-card > p {
+    font-size: 11px;
+  }
+  .waiting-code {
+    padding: 16px 10px;
+    margin-top: 24px;
+  }
+  .waiting-code strong {
+    font-size: 34px;
+    letter-spacing: 5px;
+  }
+  .waiting-code > button {
+    gap: 14px;
+  }
+  .waiting-share .secondary-button {
+    min-height: 46px;
+  }
+  .waiting-footnote {
+    font-size: 9px;
+  }
+  .header-room-code {
+    padding: 8px 10px;
+    gap: 5px;
+    min-height: 40px;
+  }
+  .header-room-code > span {
+    display: none;
+  }
+  .header-room-code strong {
+    font-size: 12px;
+    letter-spacing: 1.5px;
+  }
+  .header-room-code > svg {
+    width: 12px;
+  }
+  .header-actions {
+    gap: 5px;
+  }
+  .connection-badge {
+    display: none;
+  }
+  .leave-button {
+    width: 39px;
+    height: 40px;
+  }
+  .play-main {
+    padding: 17px 15px 0;
+  }
+  .play-heading {
+    margin-bottom: 10px;
+  }
+  .play-heading .eyebrow {
+    font-size: 6px;
+    letter-spacing: 1px;
+  }
+  .play-heading h1 {
+    font-size: 27px;
+    margin-top: 7px;
+    letter-spacing: -1px;
+  }
+  .round-label {
+    font-size: 8px;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  .round-label i {
+    width: 2px;
+    height: 2px;
+  }
+  .board-column {
+    max-width: 560px;
+  }
+  .player-bar {
+    min-height: 47px;
+    gap: 9px;
+  }
+  .player-avatar {
+    width: 33px;
+    height: 33px;
+  }
+  .player-avatar > svg {
+    width: 20px;
+  }
+  .player-details strong {
+    font-size: 11px;
+  }
+  .player-details > span {
+    font-size: 7px;
+  }
+  .turn-indicator {
+    font-size: 7px;
+    padding: 5px;
+  }
+  .board-frame {
+    padding: 12px 12px 17px 17px;
+    margin: 8px 0;
+  }
+  .board-ranks {
+    top: 12px;
+    bottom: 17px;
+    width: 17px;
+  }
+  .board-files {
+    left: 17px;
+    right: 12px;
+    height: 17px;
+  }
+  .board-ranks span,
+  .board-files span {
+    font-size: 8px;
+  }
+  .board-controls {
+    position: sticky;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    z-index: 5;
+    padding: 5px;
+    background: #233120f5;
+    border: 1px solid #50633e;
+    margin-top: 5px;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px #0003;
+  }
+  .board-controls > button {
+    min-height: 48px;
+    gap: 5px;
+  }
+  .board-controls > button > svg {
+    width: 18px;
+    height: 18px;
+  }
+  .board-controls button span {
+    font-size: 8px;
+  }
+  .board-caption {
+    padding: 9px 1px 0;
+    font-size: 7px;
+    gap: 4px;
+  }
+  .board-caption > span {
+    gap: 4px;
+  }
+  .board-caption > span > svg {
+    width: 11px;
+  }
+  .board-caption button {
+    min-height: 29px;
+    gap: 1px;
+  }
+  .game-status {
+    font-size: 9px;
+    min-height: 29px;
+    padding-top: 2px;
+  }
+  .captured-pieces {
+    max-width: 30%;
+  }
+  .captured-pieces svg {
+    width: 13px;
+    height: 18px;
+  }
+  .captured-pieces small {
+    font-size: 6px;
+  }
+  .reconnect-banner {
+    padding: 12px;
+    gap: 9px;
+    margin-bottom: 13px;
+    flex-wrap: wrap;
+  }
+  .reconnect-banner > svg {
+    width: 16px;
+  }
+  .reconnect-banner > div {
+    flex: 1;
+  }
+  .reconnect-banner strong {
+    font-size: 11px;
+  }
+  .reconnect-banner div > span {
+    font-size: 9px;
+  }
+  .reconnect-banner button {
+    margin-left: auto;
+    min-height: 40px;
+    font-size: 10px;
+  }
+  .in-game .site-footer {
+    width: calc(100% - 32px);
+    margin-top: 15px;
+  }
+  .update-banner {
+    gap: 7px;
+    font-size: 10px;
+    padding: 8px 10px;
+  }
+  .update-banner > button {
+    font-size: 9px;
+    min-height: 36px;
+    padding-inline: 6px;
+  }
+  .update-banner > svg {
+    display: none;
+  }
+  .history-scroll {
+    height: 240px;
+  }
+  .history-empty strong {
+    font-size: 10px;
+  }
+  .history-empty p {
+    font-size: 9px;
+  }
+  .history-columns {
+    font-size: 10px;
+  }
+  .history-footer {
+    font-size: 9px;
+  }
+}
+@media (max-width: 360px) {
+  .site-header {
+    padding-inline: 16px;
+  }
+  .brand {
+    font-size: 28px;
+  }
+  .header-room-code {
+    padding-inline: 7px;
+  }
+  .header-room-code strong {
+    font-size: 11px;
+  }
+  .lobby-main {
+    padding-inline: 16px;
+  }
+  .lobby-intro h1 {
+    font-size: 42px;
+  }
+  .lobby-benefits {
+    gap: 7px;
+    font-size: 7px;
+  }
+  .lobby-choice {
+    padding: 21px 16px;
+    gap: 12px;
+  }
+  .lobby-choice h2 {
+    font-size: 23px;
+  }
+  .lobby-choice > p {
+    font-size: 9px;
+  }
+  .waiting-main {
+    padding-inline: 16px;
+  }
+  .waiting-card {
+    padding-inline: 17px;
+  }
+  .waiting-card h1 {
+    font-size: 28px;
+  }
+  .waiting-code strong {
+    font-size: 31px;
+    letter-spacing: 4px;
+  }
+  .player-details > span {
+    font-size: 6px;
+  }
+  .board-caption > span > svg {
+    display: none;
+  }
+  .round-label {
+    font-size: 7px;
+  }
+  .play-heading h1 {
+    font-size: 25px;
+  }
+  .play-main {
+    padding-inline: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .brand-caption {
+    display: none;
+  }
+  .lobby-intro h1 em {
+    display: inline;
+  }
+  .lobby-choice {
+    border-radius: 10px;
+  }
+}
