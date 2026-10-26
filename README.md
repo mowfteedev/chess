@@ -1,6 +1,6 @@
 # Gambit
 
-**[Chơi ngay](https://mowfteedev.github.io/chess/)** — cờ vua hai người, vào bàn bằng mã hoặc link mời.
+**[Chơi ngay](https://mowfteedev.github.io/gambit/)** — cờ vua hai người, vào bàn bằng mã hoặc link mời.
 
 Chọn 1, 5 hoặc 10 phút mỗi bên. Có âm thanh, thông báo vào/rời bàn và giao diện điện thoại.
 
