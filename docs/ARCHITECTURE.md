@@ -2,7 +2,14 @@
 
 ## Lựa chọn
 
-Giữ React/Vite trên GitHub Pages. Dùng Supabase cho Anonymous Auth, PostgreSQL, Realtime và Edge Function kiểm tra luật cờ. Bản thử P2P đã chứng minh giao diện nhưng không xác minh được TURN; transport mới không cần kết nối trực tiếp giữa hai thiết bị.
+Giữ React/Vite trên GitHub Pages. Dùng Supabase cho Anonymous Auth, PostgreSQL, Realtime và Edge Function kiểm tra luật cờ.
+
+## Mã nguồn
+
+- `src/App.tsx`: điều phối; `components/Layout.tsx`, `Lobby.tsx`, `GameScreen.tsx`, `RoomDialogs.tsx`: khung trang và các màn hình.
+- `components/ChessBoard.tsx`: bàn, ô cờ và kéo thả; `hooks/`: state và vòng đời; `multiplayer/`: đồng bộ và phục hồi kết nối.
+- CSS chia ba nhóm và import theo thứ tự trong `src/index.css`: `styles/site.css` (chung và sảnh), `styles/game.css` (bàn và bảng điều khiển), `styles/responsive.css` (phản hồi, responsive và đồng hồ).
+- `supabase/functions/`: luật và API; `supabase/migrations/`: lịch sử schema; `test/`: luật, giao diện, mạng và phân quyền.
 
 ## Dữ liệu và quyền
 
@@ -52,6 +59,16 @@ Timed play tiếp tục khi đối thủ offline; đấu lại vẫn cần đồ
 Frontend gửi `x-region` theo `VITE_SUPABASE_FUNCTION_REGION` để hàm chạy gần database; handler công khai `Server-Timing` auth/read/commit/total cho phép đo. [Hướng dẫn Supabase về region](https://supabase.com/docs/guides/functions/regional-invocation).
 
 ## Triển khai và hồi phục
+
+CLI phải đăng nhập và liên kết đúng project. Khi cập nhật backend, kiểm tra dry-run trước khi áp dụng:
+
+```bash
+npx supabase db push --linked --project-ref YOUR_PROJECT_REF --dry-run --skip-vault
+npx supabase db push --linked --project-ref YOUR_PROJECT_REF --skip-vault
+npx supabase functions deploy chess-rooms --project-ref YOUR_PROJECT_REF --use-api
+```
+
+`supabase/config.toml` chỉ phục vụ local test. Khi đổi domain, cập nhật CORS của Edge Function.
 
 SQL migration chỉ tạo đối tượng `gambit_*`; không sửa bảng khác. Chạy dry-run trước, áp dụng bằng Supabase CLI để giữ migration history, rồi deploy Edge Function đúng project ref. Không push toàn bộ cấu hình local lên production.
 

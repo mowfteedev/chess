@@ -1,6 +1,5 @@
 import { LogIn, LogOut, X } from "lucide-react";
 import type { RoomNotice } from "../hooks/useRoomEvents";
-import "./RoomNotifications.css";
 
 export function RoomNotifications({
   notice,

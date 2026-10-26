@@ -1,25 +1,32 @@
+import { useEffect, useState, type ReactNode } from "react";
 import {
   ArrowUpDown,
   BookOpen,
   ChevronRight,
+  Clock3,
   Flag,
   Palette,
   RotateCcw,
   Share2,
   ShieldCheck,
+  UserRound,
   Users,
   Volume2,
   VolumeX,
   WifiOff,
 } from "lucide-react";
-import { ChessBoard } from "../ChessBoard";
-import { CapturedPieces } from "../CapturedPieces";
-import { GameClock } from "../GameClock";
-import { MoveHistory } from "../MoveHistory";
-import { Controls } from "../Controls";
-import type { useChessGame } from "../../hooks/useChessGame";
-import type { BoardTheme, Color } from "../../types/chess";
-import { opposite } from "../../multiplayer/protocol";
+import { ChessBoard } from "./ChessBoard";
+import { ChessPieceIcon, PIECE_NAMES } from "./ChessPieceIcon";
+import { MoveHistory } from "./MoveHistory";
+import { Controls } from "./Controls";
+import type { useChessGame } from "../hooks/useChessGame";
+import type { BoardTheme, CapturedPieceGroup, Color } from "../types/chess";
+import {
+  clockRemaining,
+  opposite,
+  type GameState,
+} from "../multiplayer/protocol";
+
 interface GameScreenProps {
   game: ReturnType<typeof useChessGame>;
   theme: BoardTheme;
@@ -281,5 +288,106 @@ export function GameScreen({
         </div>
       )}
     </main>
+  );
+}
+
+function CapturedPieces({
+  captured,
+  materialAdvantage,
+  playerName,
+  subtitle,
+  isTurn,
+  isSelf,
+  color,
+  clock,
+}: {
+  captured: CapturedPieceGroup[];
+  materialAdvantage: number;
+  playerName: string;
+  subtitle: string;
+  isTurn: boolean;
+  isSelf: boolean;
+  color: "w" | "b";
+  clock?: ReactNode;
+}) {
+  return (
+    <div className={`player-bar ${isTurn ? "active-player" : ""}`}>
+      <div className={`player-avatar ${isSelf ? "" : "friend-avatar"}`}>
+        <UserRound size={23} />
+        <span className={`color-dot ${color}`} />
+      </div>
+      <div className="player-details">
+        <strong>
+          {playerName}
+          {isSelf && <span className="mini-label">BẠN</span>}
+        </strong>
+        <span>{subtitle}</span>
+      </div>
+      <div className="captured-pieces" aria-label="Quân đã bắt">
+        {captured.map((group) => {
+          const label = `${group.count} ${PIECE_NAMES[group.type]} ${group.color === "w" ? "trắng" : "đen"}`;
+          return (
+            <span key={group.type} title={label} role="img" aria-label={label}>
+              <ChessPieceIcon type={group.type} color={group.color} />
+              {group.count > 1 && <small>×{group.count}</small>}
+            </span>
+          );
+        })}
+        {materialAdvantage > 0 && <b>+{materialAdvantage}</b>}
+      </div>
+      {clock}
+      {!clock && isTurn && (
+        <span className="turn-indicator">
+          <i />
+          Lượt đi
+        </span>
+      )}
+    </div>
+  );
+}
+
+function GameClock({
+  game,
+  color,
+  now,
+  onExpired,
+}: {
+  game: GameState;
+  color: Color;
+  now: () => number;
+  onExpired: () => void;
+}) {
+  const [, tick] = useState(0);
+  const running =
+    Boolean(game.clock?.runningSince) &&
+    !game.timeout &&
+    !game.resignation &&
+    (game.moves.length % 2 === 0 ? "w" : "b") === color;
+  const remaining = clockRemaining(game, now())[color];
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(() => {
+      tick((value) => value + 1);
+      if (clockRemaining(game, now())[color] <= 0) onExpired();
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [game, color, running, now, onExpired]);
+  if (!game.clock) return null;
+  const seconds = Math.ceil(remaining / 1000);
+  const text = `${Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
+  return (
+    <div
+      className={`game-clock ${running ? "running" : ""} ${remaining < 10000 ? "low-time" : ""}`}
+      data-testid={`clock-${color}`}
+      aria-label={`Đồng hồ quân ${color === "w" ? "trắng" : "đen"}`}
+      role="timer"
+      aria-live="off"
+      title={running ? "Đồng hồ đang chạy" : "Đồng hồ đang dừng"}
+    >
+      <Clock3 size={13} aria-hidden="true" />
+      <span>{text}</span>
+    </div>
   );
 }

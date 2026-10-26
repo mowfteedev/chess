@@ -3,7 +3,7 @@ import { ArrowRight, Check, RefreshCw } from "lucide-react";
 import { useChessGame } from "./hooks/useChessGame";
 import { usePreference } from "./hooks/usePreference";
 import { APP_RELEASE, useAppUpdate } from "./hooks/useAppUpdate";
-import { Lobby } from "./components/Lobby";
+import { Lobby, WaitingRoom } from "./components/Lobby";
 import { RoomNotifications } from "./components/RoomNotifications";
 import { useRoomEvents } from "./hooks/useRoomEvents";
 import {
@@ -12,13 +12,13 @@ import {
   validCode,
   type TimeControl,
 } from "./multiplayer/protocol";
-import { SiteHeader } from "./components/layout/SiteHeader";
-import { SiteFooter } from "./components/layout/SiteFooter";
-import { GameScreen } from "./components/room/GameScreen";
-import { WaitingRoom } from "./components/room/WaitingRoom";
-import { RoomEntryDialog } from "./components/room/RoomEntryDialog";
-import { RoomDialogs } from "./components/room/RoomDialogs";
-import { useRoomDialogs } from "./hooks/useRoomDialogs";
+import { SiteHeader, SiteFooter } from "./components/Layout";
+import { GameScreen } from "./components/GameScreen";
+import {
+  RoomEntryDialog,
+  RoomDialogs,
+  useRoomDialogs,
+} from "./components/RoomDialogs";
 import { BOARD_THEMES } from "./utils/themes";
 import type { BoardTheme, Color } from "./types/chess";
 
