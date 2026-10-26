@@ -16,7 +16,7 @@ Ngày 26/10/2026. Thay đổi dựa trên `cbbbefb7bb1def659c21f02cd6249648ca038
 | Cache                 | Manifest chống cache, reload có version, không tự tải lại ván, entry JS bị lỗi có màn khôi phục                                 | PASS    |
 | TypeScript/luật cờ    | Frontend + server được kiểm type; `npm test` 5/5                                                                                | PASS    |
 
-Lần chạy cuối đạt **37/37 ca Playwright** trong 44,8 giây: 30 ca UI/trình duyệt, 1 ca HTTP auth và 6 ca protocol. `npm test` đạt 5/5; TypeScript frontend/server đều qua. CI chạy lại toàn bộ suite trên commit phát hành trước khi deploy: [GitHub Actions](https://github.com/mowfteedev/chess/actions/workflows/deploy.yml).
+Lần chạy cuối với `CI=true` đạt **37/37 ca Playwright** trong 46,5 giây: 30 ca UI/trình duyệt, 1 ca HTTP auth và 6 ca protocol. `npm test` đạt 5/5; TypeScript frontend/server đều qua. CI chạy lại toàn bộ suite trên commit phát hành trước khi deploy: [GitHub Actions](https://github.com/mowfteedev/chess/actions/workflows/deploy.yml).
 
 Đã tái hiện và sửa việc phản hồi hiện diện cũ ghi đè heartbeat mới. Ca gây trễ một HTTP read thật xác minh kết nối và ô đang chọn không bị trả về trạng thái cũ. Ca này cùng reload khách qua 8 lượt kiểm tra lặp; kiểm tra reload chờ chủ phòng nhận heartbeat mới trước khi đi tiếp. Ca retry tạo phòng cũng đã đỏ trước bản vá, xanh sau bản vá.
 

@@ -41,7 +41,7 @@ Một ván giới hạn 2048 nửa nước. Phòng hết hạn sau 48 giờ; ch�
 
 SQL migration chỉ tạo đối tượng `gambit_*`; không sửa bảng khác. Chạy dry-run trước, áp dụng bằng Supabase CLI để giữ migration history, rồi deploy Edge Function đúng project ref. Không push toàn bộ cấu hình local lên production.
 
-CI khởi động stack Supabase Docker riêng, dùng `.env.test.local` rồi build production bằng repository variables. SDK chỉ tải khi người dùng vào phòng. Không có secret key trong bundle frontend.
+CI khởi động stack Supabase Docker riêng, dùng `.env.test.local` rồi build production bằng repository variables. Playwright dùng lại Edge Runtime đã được CLI khởi động khi health của stack riêng sẵn sàng; preview frontend luôn được tạo mới trong CI. SDK chỉ tải khi người dùng vào phòng. Không có secret key trong bundle frontend.
 
 Rollback giao diện bằng revert và deploy GitHub Pages lại; giữ bảng mới để không mất ván. Backend thay đổi tiếp theo cần migration mới, không sửa migration đã áp dụng. Không tự drop bảng để rollback.
 

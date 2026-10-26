@@ -17,7 +17,8 @@ export default defineConfig({
       command:
         'node_modules/.bin/supabase --agent no --output-format text functions serve chess-rooms',
       url: 'http://127.0.0.1:56321/functions/v1/chess-rooms',
-      reuseExistingServer: !process.env.CI,
+      // `supabase start` can already serve this function in the isolated test stack.
+      reuseExistingServer: true,
       timeout: 120000,
     },
     {
