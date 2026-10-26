@@ -5,14 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit -p tsconfig.app.json && vite build",
+    "build": "tsc --noEmit -p tsconfig.app.json && npm run check:server && vite build",
     "preview": "vite preview",
     "test": "node --test test/chess.test.js",
-    "test:e2e": "playwright test"
+    "test:e2e": "node scripts/prepare-test-supabase.mjs && playwright test",
+    "check:server": "tsc --noEmit -p tsconfig.server.json"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "canvas-confetti": "^1.9.4",
-    "chess.js": "^1.0.0-beta.6",
+    "chess.js": "1.4.0",
     "lucide-react": "^1.16.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
@@ -21,10 +23,12 @@
     "@playwright/test": "^1.64.1",
     "@tailwindcss/vite": "^4.0.0",
     "@types/canvas-confetti": "^1.9.0",
+    "@types/deno": "^2.7.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "supabase": "^2.122.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.3",
     "vite": "^6.2.0"

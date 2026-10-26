@@ -1,127 +1,229 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import {
-  ArrowDownToLine,
   ArrowRight,
-  ArrowUpRight,
   ArrowUpDown,
   BookOpen,
+  Check,
   ChevronRight,
   CircleHelp,
-  Coffee,
-  Command,
+  Copy,
+  Download,
+  Flag,
   Heart,
-  Leaf,
-  Maximize2,
-  Minimize2,
+  Link2,
+  LoaderCircle,
+  LogOut,
   Palette,
+  RefreshCw,
   RotateCcw,
+  Share2,
   ShieldCheck,
   Swords,
-  Undo2,
+  Users,
   Volume2,
   VolumeX,
+  Wifi,
+  WifiOff,
 } from 'lucide-react'
 import { useChessGame } from './hooks/useChessGame'
 import { usePreference } from './hooks/usePreference'
+import { APP_RELEASE, useAppUpdate } from './hooks/useAppUpdate'
 import { ChessBoard } from './components/ChessBoard'
 import { CapturedPieces } from './components/CapturedPieces'
 import { MoveHistory } from './components/MoveHistory'
-import { Controls, DIFFICULTY_LABELS } from './components/Controls'
+import { Controls } from './components/Controls'
 import { PromotionModal } from './components/PromotionModal'
 import { GameOverModal } from './components/GameOverModal'
 import { ChessPieceIcon } from './components/ChessPieceIcon'
 import { Dialog } from './components/Dialog'
+import { Lobby } from './components/Lobby'
+import { gamePgn, opposite, readCode, validCode } from './multiplayer/protocol'
 import { BOARD_THEMES } from './utils/themes'
-import type { BoardTheme } from './types/chess'
+import type { BoardTheme, Color } from './types/chess'
 
 export function App() {
-  const game = useChessGame()
+  const [inviteCode] = useState(() => {
+    const code = new URLSearchParams(location.hash.slice(1)).get('room')?.toUpperCase() ?? ''
+    return validCode(code) ? code : ''
+  })
+  const game = useChessGame(inviteCode)
+  const { room, client } = game
+  const update = useAppUpdate()
   const [theme, setTheme] = usePreference<BoardTheme>(
     'board-theme',
     'wood',
     (value): value is BoardTheme =>
       typeof value === 'string' && Object.prototype.hasOwnProperty.call(BOARD_THEMES, value),
   )
+  const [nickname, setNickname] = usePreference(
+    'nickname',
+    '',
+    (value): value is string => typeof value === 'string' && value.length <= 24,
+  )
+  const [entry, setEntry] = useState<'create' | 'join' | null>(inviteCode ? 'join' : null)
+  const [codeInput, setCodeInput] = useState(inviteCode)
+  const [hostColor, setHostColor] = useState<Color>('w')
+  const [formError, setFormError] = useState('')
   const [helpOpen, setHelpOpen] = useState(false)
-  const [confirmReset, setConfirmReset] = useState(false)
+  const [appearanceOpen, setAppearanceOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [confirmation, setConfirmation] = useState<'leave' | 'resign' | 'update' | null>(null)
   const [resultDismissed, setResultDismissed] = useState(false)
-  const [focusMode, setFocusMode] = useState(false)
-  const topColor = game.isFlipped ? 'w' : 'b'
-  const bottomColor = game.isFlipped ? 'b' : 'w'
+  const [copied, setCopied] = useState('')
+  const isLobby = room.status === 'idle'
+  const hasBoard =
+    room.status === 'connected' ||
+    room.moves.length > 0 ||
+    (room.status === 'reconnecting' && room.guestName !== 'Bạn chơi')
+  const connected = room.status === 'connected'
+  const myName = room.myColor === room.hostColor ? room.hostName : room.guestName
+  const opponentName = room.myColor === room.hostColor ? room.guestName : room.hostName
+  const shareUrl = new URL(location.pathname, location.origin)
+  shareUrl.searchParams.set('v', APP_RELEASE.version)
+  shareUrl.hash = `room=${room.code}`
 
+  useEffect(() => {
+    if (!isLobby) setEntry(null)
+  }, [isLobby])
+  useEffect(() => {
+    if (!isLobby)
+      document.getElementById(hasBoard ? 'play' : 'main')?.focus({ preventScroll: true })
+  }, [isLobby, hasBoard])
+  useEffect(() => {
+    setResultDismissed(false)
+  }, [room.round])
   useEffect(() => {
     if (!game.isGameOver) setResultDismissed(false)
   }, [game.isGameOver])
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setFocusMode(false)
+    if (!copied) return
+    const timer = window.setTimeout(() => setCopied(''), 2500)
+    return () => clearTimeout(timer)
+  }, [copied])
+  useEffect(() => {
+    if (room.code && room.status !== 'idle') {
+      const url = new URL(location.href)
+      url.hash = `room=${room.code}`
+      history.replaceState(null, '', url)
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [room.code, room.status])
 
-  const newGame = () => {
-    game.resetGame()
-    setConfirmReset(false)
-    setResultDismissed(false)
+  const leave = () => {
+    client.leave()
+    setConfirmation(null)
+    setHistoryOpen(false)
+    setAppearanceOpen(false)
+    setShareOpen(false)
+    const url = new URL(location.href)
+    url.hash = ''
+    history.replaceState(null, '', url)
   }
-  const requestNewGame = () => {
-    if (game.moveHistory.length && !game.isGameOver) setConfirmReset(true)
-    else newGame()
+  const copy = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(label)
+    } catch {
+      setShareOpen(true)
+    }
+  }
+  const share = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Hẹn bạn một ván cờ — Gambit',
+          text: `Vào phòng ${room.code}, mình đợi bạn nhé.`,
+          url: shareUrl.href,
+        })
+        return
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return
+      }
+    }
+    await copy(shareUrl.href, 'Đã sao chép lời mời')
+  }
+  const submitEntry = (event: FormEvent) => {
+    event.preventDefault()
+    if (entry === 'join') {
+      const code = readCode(codeInput)
+      if (!validCode(code)) {
+        setFormError('Mã phòng gồm 6 ký tự, ví dụ ABC234. Bạn kiểm tra lại nhé.')
+        return
+      }
+      client.join(code, nickname)
+    } else client.create(nickname, hostColor)
+    setEntry(null)
+    setFormError('')
   }
   const exportPgn = () => {
-    const blob = new Blob([game.chess.pgn()], { type: 'application/x-chess-pgn;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
+    const url = URL.createObjectURL(
+      new Blob([gamePgn(room)], { type: 'application/x-chess-pgn;charset=utf-8' }),
+    )
     const link = document.createElement('a')
     link.href = url
-    link.download = 'gambit-van-co.pgn'
+    link.download = `gambit-${room.code}.pgn`
     link.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
-  const playerInfo = (color: 'w' | 'b') => {
-    const isBot = game.gameMode === 'vs-bot' && color !== game.playerColor
-    return (
-      <CapturedPieces
-        captured={color === 'w' ? game.capturedBlack : game.capturedWhite}
-        materialAdvantage={color === 'w' ? game.materialAdvantage : -game.materialAdvantage}
-        playerName={
-          isBot
-            ? 'Gambit Bot'
-            : game.gameMode === 'vs-bot'
-              ? 'Bạn'
-              : `Người chơi ${color === 'w' ? 'Trắng' : 'Đen'}`
-        }
-        subtitle={
-          isBot
-            ? `${DIFFICULTY_LABELS[game.botDifficulty]} · Quân ${color === 'w' ? 'trắng' : 'đen'}`
-            : `Quân ${color === 'w' ? 'trắng' : 'đen'} · ${game.gameMode === 'vs-bot' ? 'Cứ tự tin với nước đi của mình' : 'Cùng chơi trên một thiết bị'}`
-        }
-        isTurn={!game.isGameOver && game.turn === color}
-        isBot={isBot}
-        isThinking={isBot && game.isBotThinking}
-        color={color}
-      />
-    )
+  const requestRematch = () => {
+    if (client.command({ kind: 'rematch' })) setResultDismissed(true)
   }
-  const status = game.isGameOver
-    ? 'Ván đấu đã kết thúc'
-    : game.isCheck
-      ? `Chiếu tướng! Quân ${game.turn === 'w' ? 'trắng' : 'đen'} cần bảo vệ vua.`
-      : game.gameMode === 'vs-bot' && game.turn !== game.playerColor
-        ? game.botError
-          ? 'Đang chờ máy thử lại'
-          : 'Gambit đang suy nghĩ'
-        : game.gameMode === 'vs-bot'
-          ? 'Đến lượt của bạn'
-          : `Đến lượt quân ${game.turn === 'w' ? 'trắng' : 'đen'}`
+  const topColor = game.isFlipped ? 'w' : 'b'
+  const playerBar = (color: Color) => (
+    <CapturedPieces
+      playerName={color === room.hostColor ? room.hostName : room.guestName}
+      subtitle={`${color === 'w' ? 'Quân trắng' : 'Quân đen'} · ${color === room.myColor ? 'Tự tin với nước đi của mình' : connected ? 'Đã ngồi vào bàn' : 'Đang kết nối lại'}`}
+      isSelf={color === room.myColor}
+      isTurn={connected && !game.isGameOver && game.turn === color}
+      color={color}
+      captured={color === 'w' ? game.capturedBlack : game.capturedWhite}
+      materialAdvantage={color === 'w' ? game.materialAdvantage : -game.materialAdvantage}
+    />
+  )
+  const gameStatus = !connected
+    ? 'Ván cờ tạm dừng · chờ kết nối'
+    : game.isGameOver
+      ? 'Ván đấu đã kết thúc'
+      : room.pendingMove
+        ? 'Đang gửi nước đi…'
+        : game.isCheck
+          ? `${game.turn === room.myColor ? 'Bạn đang' : 'Bạn chơi đang'} bị chiếu`
+          : game.turn === room.myColor
+            ? 'Đến lượt bạn'
+            : `Đang chờ ${opponentName}`
 
   return (
-    <div className={`app-shell ${focusMode ? 'focus-mode' : ''}`}>
-      <a href="#play" className="skip-link">
-        Đến bàn cờ
+    <div className={`app-shell rooms-app ${hasBoard ? 'in-game' : ''}`}>
+      <a className="skip-link" href={hasBoard ? '#play' : '#main'}>
+        Đến nội dung chính
       </a>
-      <aside className="sidebar">
-        <a className="brand" href="#play" aria-label="Gambit — về bàn cờ">
+      {update.available && (
+        <div className="update-banner" role="status">
+          <RefreshCw size={15} />
+          <span>Có phiên bản mới của Gambit.</span>
+          <button
+            onClick={() => {
+              if (!isLobby) setConfirmation('update')
+              else update.reload()
+            }}
+          >
+            Cập nhật ngay
+            <ArrowRight size={14} />
+          </button>
+        </div>
+      )}
+      <header className="site-header">
+        <a
+          className="brand"
+          href="#"
+          onClick={(event) => {
+            event.preventDefault()
+            if (isLobby) return
+            if (room.moves.length) setConfirmation('leave')
+            else leave()
+          }}
+          aria-label="Gambit — về trang chủ"
+        >
           <span className="brand-mark">
             <ChessPieceIcon type="n" color="w" />
           </span>
@@ -129,120 +231,102 @@ export function App() {
             gambit<span className="brand-period">.</span>
           </span>
         </a>
-        <div className="sidebar-section-label">KHÔNG GIAN CỦA BẠN</div>
-        <nav className="main-nav" aria-label="Điều hướng chính">
-          <a className="nav-item active" href="#play" aria-current="page">
-            <Swords size={19} />
-            Chơi cờ
-            <span className="nav-active-dot" />
-          </a>
-          <button className="nav-item" onClick={() => setHelpOpen(true)}>
-            <BookOpen size={18} />
-            Góc nhập môn
-            <ArrowUpRight size={14} className="nav-end" />
-          </button>
+        {!isLobby && (
           <button
-            className="nav-item"
-            onClick={() => {
-              document.getElementById('appearance')?.scrollIntoView({
-                behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
-                  ? 'instant'
-                  : 'smooth',
-                block: 'center',
-              })
-              document
-                .querySelector<HTMLButtonElement>('.theme-swatch.active')
-                ?.focus({ preventScroll: true })
-            }}
+            className="header-room-code"
+            onClick={() => void copy(room.code, 'Đã sao chép mã phòng')}
+            aria-label={`Sao chép mã phòng ${room.code}`}
           >
-            <Palette size={18} />
-            Giao diện
+            <span>PHÒNG</span>
+            <strong>{room.code}</strong>
+            <Copy size={13} />
           </button>
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="sidebar-quote">
-            <span className="quote-mark">“</span>
-            <p>
-              Nước đi hay nhất
-              <br />
-              là nước đi tiếp theo.
-            </p>
-            <span className="quote-rule" />
-            <small>BÌNH TĨNH. QUAN SÁT. TIẾN LÊN.</small>
-            <ChessPieceIcon type="n" color="w" className="quote-knight" />
-          </div>
-          <div className="local-status">
-            <span className="live-dot" />
-            Không gian riêng của bạn
-          </div>
-          <button className="sidebar-help" onClick={() => setHelpOpen(true)}>
-            <CircleHelp size={17} />
-            Hướng dẫn chơi
-            <ChevronRight size={15} />
-          </button>
-          <div className="profile">
-            <span className="profile-avatar">m.</span>
-            <div>
-              <strong>mowftee</strong>
-              <span>Just enjoy the game.</span>
-            </div>
-            <Leaf size={17} />
-          </div>
-        </div>
-      </aside>
-
-      <div className="workspace">
-        <header className="topbar">
-          <div className="breadcrumbs">
-            <span>Câu lạc bộ</span>
-            <ChevronRight size={12} />
-            <strong>Bàn cờ tự do</strong>
-          </div>
-          <div className="topbar-actions">
-            <span className="quiet-badge">
-              <span className="live-dot" />
-              CHẬM LẠI MỘT NHỊP
-            </span>
-            <button
-              className="icon-button"
-              aria-label="Hướng dẫn chơi"
-              title="Hướng dẫn chơi"
-              onClick={() => setHelpOpen(true)}
-            >
-              <CircleHelp size={19} />
-            </button>
-            <span className="topbar-avatar">m.</span>
-          </div>
-        </header>
-        <main id="play" className="main-content">
-          <div className="page-heading">
-            <div>
-              <div className="eyebrow page-eyebrow">
-                <span />
-                MỘT CHÚT TẬP TRUNG, MỘT CHÚT ĐAM MÊ
-              </div>
-              <h1>
-                Đến lượt bạn<span>.</span>
-              </h1>
-              <p>Gác lại ồn ào. Thưởng thức một ván cờ hay.</p>
-            </div>
-            <div className="session-tag">
-              <span className="session-icon">
-                <Swords size={19} />
+        )}
+        <div className="header-actions">
+          {isLobby ? (
+            <>
+              <span className="header-tagline">
+                <span className="live-dot" />A GOOD GAME, TOGETHER.
               </span>
-              <div>
-                <strong>
-                  {game.gameMode === 'vs-bot' ? 'Bạn & Gambit' : 'Một bàn cờ, hai người bạn'}
-                </strong>
+              <button className="help-button" onClick={() => setHelpOpen(true)}>
+                <CircleHelp size={17} />
+                <span>Cách chơi</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <span className={`connection-badge ${connected ? '' : 'not-connected'}`}>
+                {connected ? <Wifi size={14} /> : <LoaderCircle size={14} className="spinning" />}
                 <span>
-                  Đấu giao hữu <i /> Không tính giờ
+                  {connected
+                    ? '2/2 đã kết nối'
+                    : room.status === 'waiting'
+                      ? 'Đợi bạn vào'
+                      : 'Đang kết nối'}
+                </span>
+              </span>
+              <button
+                className="icon-button leave-button"
+                title="Rời phòng"
+                aria-label="Rời phòng"
+                onClick={() => {
+                  if (room.moves.length) setConfirmation('leave')
+                  else leave()
+                }}
+              >
+                <LogOut size={18} />
+              </button>
+            </>
+          )}
+        </div>
+      </header>
+      {isLobby ? (
+        <Lobby
+          onCreate={() => {
+            setFormError('')
+            setEntry('create')
+          }}
+          onJoin={() => {
+            setFormError('')
+            setEntry('join')
+          }}
+        />
+      ) : hasBoard ? (
+        <main className="play-main" id="play" tabIndex={-1}>
+          <div className="play-heading">
+            <div>
+              <div className="eyebrow">BẠN, MỘT NGƯỜI BẠN & 64 Ô CỜ</div>
+              <h1>
+                Một ván cờ hay<span>.</span>
+              </h1>
+            </div>
+            <span className="round-label">
+              Ván {(room.round + 1).toString().padStart(2, '0')}
+              <i />
+              Không tính giờ
+            </span>
+          </div>
+          {!connected && (
+            <div className="reconnect-banner" role="status">
+              <WifiOff size={18} />
+              <div>
+                <strong>Đợi nhau một chút nhé.</strong>
+                <span>
+                  {room.error ??
+                    'Kết nối đang gián đoạn. Giữ trang mở để tiếp tục từ đúng nước vừa đi.'}
                 </span>
               </div>
+              <button onClick={client.retry}>Kết nối lại</button>
             </div>
-          </div>
+          )}
+          {room.error && connected && (
+            <div className="inline-error" role="alert">
+              {room.error}
+            </div>
+          )}
           <div className="game-layout">
             <section className="board-column" aria-label="Khu vực chơi cờ">
-              {playerInfo(topColor)}
+              {playerBar(topColor)}
               <ChessBoard
                 chess={game.chess}
                 theme={theme}
@@ -252,181 +336,478 @@ export function App() {
                 lastMove={game.lastMove}
                 kingInCheckSquare={game.kingInCheckSquare}
                 currentTurn={game.turn}
-                canInteract={
-                  !game.isGameOver && (game.gameMode !== 'vs-bot' || game.turn === game.playerColor)
-                }
+                canInteract={game.canInteract}
                 onSelectSquare={game.selectSquare}
                 onDropMove={game.handleMoveAttempt}
               />
-              {playerInfo(bottomColor)}
-              <div className="board-toolbar">
-                <div
-                  className={`game-status ${game.isCheck ? 'check-status' : ''}`}
-                  role="status"
-                  aria-live="polite"
-                >
-                  <span className={game.isBotThinking ? 'thinking-status' : 'status-ring'} />
-                  {status}
-                </div>
-                <div className="board-actions">
-                  <button
-                    className="icon-button"
-                    aria-label="Đi lại nước cờ"
-                    title="Đi lại nước cờ"
-                    disabled={!game.canUndo}
-                    onClick={game.undoMove}
-                  >
-                    <Undo2 size={17} />
-                  </button>
-                  <button
-                    className="icon-button"
-                    aria-label="Lật bàn cờ"
-                    title="Lật bàn cờ"
-                    onClick={game.toggleFlip}
-                  >
-                    <ArrowUpDown size={17} />
-                  </button>
-                  <button
-                    className={`icon-button ${game.soundEnabled ? 'sound-on' : ''}`}
-                    aria-label={game.soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
-                    title={game.soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
-                    aria-pressed={game.soundEnabled}
-                    onClick={game.toggleSound}
-                  >
-                    {game.soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
-                  </button>
-                  <span className="toolbar-divider" />
-                  <button
-                    className="icon-button"
-                    aria-label={focusMode ? 'Thoát chế độ tập trung' : 'Chế độ tập trung'}
-                    title={focusMode ? 'Thoát chế độ tập trung' : 'Chế độ tập trung'}
-                    aria-pressed={focusMode}
-                    onClick={() => setFocusMode((value) => !value)}
-                  >
-                    {focusMode ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
-                  </button>
-                </div>
+              {playerBar(opposite(topColor))}
+              <div
+                className={`game-status ${game.isCheck ? 'check-status' : ''}`}
+                role="status"
+                aria-live="polite"
+              >
+                <span className={room.pendingMove ? 'thinking-status' : 'status-ring'} />
+                {gameStatus}
               </div>
-              {game.botError && (
-                <div className="bot-error" role="alert">
-                  Máy chưa thể tính nước đi.<button onClick={game.retryBot}>Thử lại</button>
-                </div>
-              )}
+              <div className="board-controls" role="group" aria-label="Tiện ích bàn cờ">
+                <button onClick={() => setAppearanceOpen(true)}>
+                  <Palette size={19} />
+                  <span>Màu bàn</span>
+                </button>
+                <button onClick={game.toggleFlip}>
+                  <ArrowUpDown size={19} />
+                  <span>Lật bàn</span>
+                </button>
+                <button
+                  aria-label={game.soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
+                  aria-pressed={game.soundEnabled}
+                  onClick={game.toggleSound}
+                >
+                  {game.soundEnabled ? <Volume2 size={19} /> : <VolumeX size={19} />}
+                  <span>Âm thanh</span>
+                </button>
+                <button onClick={() => setHistoryOpen(true)}>
+                  <BookOpen size={19} />
+                  <span>Nước đi</span>
+                </button>
+                <button
+                  disabled={!connected || game.isGameOver}
+                  onClick={() => setConfirmation('resign')}
+                >
+                  <Flag size={18} />
+                  <span>Đầu hàng</span>
+                </button>
+              </div>
               <div className="board-caption">
                 <span>
                   <ShieldCheck size={13} />
-                  Hỗ trợ nhập thành & phong cấp
+                  Nhập thành · Bắt qua đường · Phong cấp
                 </span>
                 <button onClick={() => setHelpOpen(true)}>
-                  <Command size={12} />
                   Mẹo thao tác
-                  <ArrowUpRight size={12} />
+                  <ChevronRight size={12} />
                 </button>
               </div>
             </section>
-            <aside className="game-sidebar" aria-label="Thiết lập và biên bản">
-              <Controls
-                gameMode={game.gameMode}
-                botDifficulty={game.botDifficulty}
-                playerColor={game.playerColor}
-                currentTheme={theme}
-                onNewGame={requestNewGame}
-                onSelectTheme={setTheme}
-                onSelectGameMode={game.setGameMode}
-                onSelectBotDifficulty={game.setBotDifficulty}
-                onSelectPlayerColor={game.setPlayerColor}
-              />
+            <aside className="game-sidebar" aria-label="Thông tin phòng và biên bản">
+              <section className="panel room-info-panel">
+                <div className="panel-heading">
+                  <h2>Bàn cờ của chúng mình</h2>
+                  <Users size={17} />
+                </div>
+                <div className="room-members">
+                  <div>
+                    <span className="member-avatar">{myName.slice(0, 1).toUpperCase()}</span>
+                    <div>
+                      <strong>
+                        {myName}
+                        <small>BẠN</small>
+                      </strong>
+                      <span>Quân {room.myColor === 'w' ? 'trắng' : 'đen'}</span>
+                    </div>
+                    <span className="live-dot" />
+                  </div>
+                  <div>
+                    <span className="member-avatar friend-avatar">
+                      {opponentName.slice(0, 1).toUpperCase()}
+                    </span>
+                    <div>
+                      <strong>{opponentName}</strong>
+                      <span>Quân {room.myColor === 'w' ? 'đen' : 'trắng'}</span>
+                    </div>
+                    <span className={`live-dot ${connected ? '' : 'offline-dot'}`} />
+                  </div>
+                </div>
+                <button className="secondary-button" onClick={() => void share()}>
+                  <Share2 size={16} />
+                  Chia sẻ phòng
+                </button>
+                <Controls currentTheme={theme} onSelectTheme={setTheme} />
+              </section>
               <MoveHistory history={game.moveHistory} onExport={exportPgn} />
-              <div className="little-note">
-                <Coffee size={17} />
-                <p>
-                  Không cần vội.
-                  <br />
-                  <span>Nước đi hay xứng đáng được chờ đợi.</span>
-                </p>
-              </div>
+              {game.isGameOver && (
+                <button
+                  className="primary-button"
+                  disabled={!connected || Boolean(room.rematchBy)}
+                  onClick={requestRematch}
+                >
+                  {room.rematchBy === room.myColor ? 'Đợi bạn đồng ý đấu lại…' : 'Mời bạn đấu lại'}
+                  <RotateCcw size={16} />
+                </button>
+              )}
+              <p className="game-sidebar-note">
+                Nước đi được đồng bộ giữa hai người.
+                <br />
+                Giữ trang mở trong suốt ván cờ nhé.
+              </p>
             </aside>
           </div>
-          <footer className="page-footer">
-            <span>64 ô cờ. Vô vàn khả năng.</span>
-            <span>
-              Made for the love of the game
-              <Heart size={11} />
-              <span className="footer-signature">gambit.</span>
-            </span>
-          </footer>
+          {game.isGameOver && (
+            <div className="mobile-result-action">
+              <button
+                className="primary-button"
+                disabled={!connected || Boolean(room.rematchBy)}
+                onClick={requestRematch}
+              >
+                {room.rematchBy ? 'Đợi bạn đồng ý đấu lại…' : 'Mời bạn đấu lại'}
+                <RotateCcw size={16} />
+              </button>
+            </div>
+          )}
         </main>
-      </div>
+      ) : (
+        <main className="waiting-main" id="main" tabIndex={-1}>
+          <button className="back-to-lobby" onClick={leave}>
+            <LogOut size={15} />
+            Về sảnh
+          </button>
+          <div className={`waiting-card ${room.status === 'error' ? 'waiting-error' : ''}`}>
+            <div className="waiting-icon">
+              {room.status === 'error' ? (
+                <WifiOff size={33} />
+              ) : room.status === 'opening' || room.status === 'reconnecting' ? (
+                <LoaderCircle size={35} className="spinning" />
+              ) : (
+                <Swords size={35} strokeWidth={1.4} />
+              )}
+            </div>
+            <div className="eyebrow">
+              {room.status === 'error'
+                ? 'MÌNH THỬ LẠI NHÉ'
+                : room.role === 'host'
+                  ? 'BÀN CỜ ĐÃ CÓ HẸN'
+                  : 'ĐANG THEO LỜI MỜI'}
+            </div>
+            <h1>
+              {room.status === 'error'
+                ? 'Chưa gặp được nhau.'
+                : room.status === 'opening'
+                  ? room.role === 'host'
+                    ? 'Đang mở bàn cờ…'
+                    : 'Đang tìm bạn…'
+                  : room.role === 'host'
+                    ? 'Hẹn bạn một ván cờ.'
+                    : 'Đợi nhau một chút.'}
+            </h1>
+            <p role={room.status === 'error' ? 'alert' : undefined}>
+              {room.error ??
+                (room.role === 'host'
+                  ? 'Gửi mã phòng hoặc link này cho bạn của bạn.\nVán cờ bắt đầu khi cả hai cùng ngồi vào bàn.'
+                  : 'Mình đang kết nối với chủ phòng.\nGiữ trang mở thêm một chút nhé.')}
+            </p>
+            {room.role === 'host' && room.status === 'waiting' && (
+              <>
+                <div className="waiting-code">
+                  <span>MÃ PHÒNG CỦA BẠN</span>
+                  <button
+                    onClick={() => void copy(room.code, 'Đã sao chép mã phòng')}
+                    aria-label={`Sao chép mã phòng ${room.code}`}
+                  >
+                    <strong data-testid="room-code">{room.code}</strong>
+                    <Copy size={20} />
+                  </button>
+                </div>
+                <div className="waiting-share">
+                  <button className="primary-button" onClick={() => void share()}>
+                    <Share2 size={18} />
+                    Gửi lời mời
+                    <ArrowRight size={18} />
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => void copy(shareUrl.href, 'Đã sao chép link mời')}
+                  >
+                    <Link2 size={17} />
+                    Sao chép link
+                  </button>
+                </div>
+                <div className="waiting-players">
+                  <span className="waiting-player-avatar">
+                    {room.hostName.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span className="waiting-line">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                  <span className="empty-player">
+                    <Users size={21} />
+                  </span>
+                </div>
+                <span className="waiting-status">
+                  <span className="live-dot" />
+                  {room.hostName} đang đợi bạn vào…
+                </span>
+              </>
+            )}
+            {(room.status === 'error' || room.status === 'reconnecting') && (
+              <button className="primary-button retry-button" onClick={client.retry}>
+                Thử kết nối lại
+                <RefreshCw size={17} />
+              </button>
+            )}
+            {room.status === 'opening' && (
+              <span className="waiting-status" role="status">
+                <LoaderCircle size={15} className="spinning" />
+                Đang kết nối phòng…
+              </span>
+            )}
+          </div>
+          <p className="waiting-footnote">
+            <ShieldCheck size={14} />
+            Một phòng dành cho đúng hai người.
+          </p>
+        </main>
+      )}
+      <footer className="site-footer">
+        <span>64 ô cờ. Vô vàn câu chuyện.</span>
+        <div>
+          <span className="footer-love">
+            Made for two
+            <Heart size={11} />
+          </span>
+          <button
+            className="build-version"
+            onClick={() => void update.check()}
+            aria-label="Kiểm tra cập nhật"
+            title={`Bản ${APP_RELEASE.version} · ${APP_RELEASE.builtAt}`}
+          >
+            <RefreshCw size={11} className={update.status === 'checking' ? 'spinning' : ''} />
+            {APP_RELEASE.revision}
+          </button>
+        </div>
+      </footer>
+      {update.status === 'current' && !update.available && (
+        <span className="sr-only" role="status">
+          Bạn đang dùng bản mới nhất.
+        </span>
+      )}
+      {update.status === 'error' && (
+        <div className="update-check-error" role="status">
+          Chưa kiểm tra được cập nhật. Bạn có thể thử lại ở mã phiên bản cuối trang.
+        </div>
+      )}
+      {copied && (
+        <div className="copy-toast" role="status">
+          <Check size={16} />
+          {copied}
+        </div>
+      )}
+      {entry && isLobby && (
+        <Dialog
+          title={entry === 'create' ? 'Mở một bàn cờ mới.' : 'Bạn đang được chờ.'}
+          description={
+            entry === 'create'
+              ? 'Một cái tên, một lời mời. Chừng đó là đủ.'
+              : 'Nhập mã bạn nhận được để cùng ngồi vào bàn.'
+          }
+          onClose={() => {
+            setEntry(null)
+            setFormError('')
+          }}
+        >
+          <form className="entry-form" onSubmit={submitEntry}>
+            <label htmlFor="nickname">
+              Tên của bạn<span>Không bắt buộc</span>
+            </label>
+            <input
+              id="nickname"
+              name="nickname"
+              autoComplete="nickname"
+              maxLength={24}
+              placeholder="Bạn muốn được gọi là gì?"
+              value={nickname}
+              onChange={(event) => setNickname(event.target.value)}
+              autoFocus
+            />
+            {entry === 'join' ? (
+              <>
+                <label htmlFor="room-code-input">Mã phòng</label>
+                <input
+                  id="room-code-input"
+                  name="room"
+                  autoComplete="off"
+                  spellCheck={false}
+                  autoCapitalize="characters"
+                  placeholder="ABC234"
+                  value={codeInput}
+                  maxLength={6}
+                  aria-invalid={Boolean(formError)}
+                  aria-describedby={formError ? 'entry-error' : 'room-code-hint'}
+                  onChange={(event) => {
+                    setCodeInput(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))
+                    setFormError('')
+                  }}
+                  onPaste={(event) => {
+                    const code = readCode(event.clipboardData.getData('text'))
+                    if (validCode(code)) {
+                      event.preventDefault()
+                      setCodeInput(code)
+                      setFormError('')
+                    }
+                  }}
+                  className="room-code-input"
+                />
+                <p id="room-code-hint" className="input-hint">
+                  Bạn có thể dán cả link mời vào ô này.
+                </p>
+              </>
+            ) : (
+              <fieldset className="choose-color">
+                <legend>Bạn muốn cầm quân nào?</legend>
+                <div>
+                  {(['w', 'b'] as const).map((color) => (
+                    <button
+                      type="button"
+                      key={color}
+                      aria-pressed={hostColor === color}
+                      className={hostColor === color ? 'active' : ''}
+                      onClick={() => setHostColor(color)}
+                    >
+                      <ChessPieceIcon type="k" color={color} />
+                      <span>
+                        {color === 'w' ? 'Quân trắng' : 'Quân đen'}
+                        <small>{color === 'w' ? 'Đi trước một bước' : 'Đón một nước hay'}</small>
+                      </span>
+                      {hostColor === color && <Check size={16} />}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+            {formError && (
+              <p className="form-error" id="entry-error" role="alert">
+                {formError}
+              </p>
+            )}
+            <button className="primary-button" type="submit">
+              {entry === 'create' ? 'Tạo phòng & mời bạn' : 'Ngồi vào bàn'}
+              <ArrowRight size={18} />
+            </button>
+            <p className="form-note">Chơi trực tiếp với người bạn mời. Không cần đăng ký.</p>
+          </form>
+        </Dialog>
+      )}
       {helpOpen && (
         <Dialog
-          title="Bắt đầu thật đơn giản."
-          description="Một bàn cờ nhỏ. Một thế giới để khám phá."
+          title="Hẹn nhau thật đơn giản."
+          description="Hai người, hai thiết bị, một bàn cờ."
           onClose={() => setHelpOpen(false)}
           className="help-dialog"
         >
           <div className="help-step">
             <span>01</span>
             <div>
-              <strong>Chọn quân, chọn nước đi.</strong>
-              <p>
-                Nhấn quân của bạn để xem các ô hợp lệ, rồi nhấn ô đích. Trên máy tính, bạn cũng có
-                thể kéo thả.
-              </p>
+              <strong>Một người tạo phòng.</strong>
+              <p>Chọn tên và màu quân, rồi gửi mã 6 ký tự hoặc link mời cho bạn.</p>
             </div>
           </div>
           <div className="help-step">
             <span>02</span>
             <div>
-              <strong>Chơi theo cách của bạn.</strong>
-              <p>
-                Đấu với Gambit ở ba mức độ, hoặc chọn “Cùng bạn” để hai người thay phiên trên một
-                thiết bị.
-              </p>
+              <strong>Một người vào bàn.</strong>
+              <p>Mở link mời hoặc chọn “Tham gia phòng” và nhập mã. Phòng chỉ nhận hai người.</p>
             </div>
           </div>
           <div className="help-step">
             <span>03</span>
             <div>
-              <strong>Bảo vệ vua. Tìm cơ hội.</strong>
+              <strong>Cùng đi một nước hay.</strong>
               <p>
-                Chiếu bí vua đối phương để thắng. Nhập thành, bắt tốt qua đường và phong cấp đều
-                được hỗ trợ.
+                Chạm quân của bạn rồi chạm ô hợp lệ để đi. Trên máy tính, có thể kéo thả hoặc dùng
+                phím mũi tên và Enter. Giữ trang mở; khi mạng gián đoạn, ván cờ tạm dừng để kết nối
+                lại.
               </p>
             </div>
           </div>
-          <div className="keyboard-tip">
-            <Command size={17} />
-            <p>
-              <strong>Thử dùng bàn phím</strong>
-              <span>
-                Tab vào bàn cờ · ↑ ↓ ← → chọn ô · Enter đi quân · Esc bỏ chọn. Esc cũng thoát chế độ
-                tập trung.
-              </span>
-            </p>
-          </div>
           <button className="primary-button" onClick={() => setHelpOpen(false)}>
-            Sẵn sàng vào ván
+            Mình hiểu rồi
             <ArrowRight size={18} />
           </button>
         </Dialog>
       )}
-      {confirmReset && (
+      {appearanceOpen && (
         <Dialog
-          title="Một khởi đầu mới?"
-          description="Ván hiện tại sẽ được đặt lại. Bạn có thể tải biên bản trước khi bắt đầu lại."
-          onClose={() => setConfirmReset(false)}
+          title="Một bàn cờ hợp ý."
+          description="Chọn sắc màu khiến bạn muốn ngồi lại lâu hơn."
+          onClose={() => setAppearanceOpen(false)}
+        >
+          <Controls currentTheme={theme} onSelectTheme={setTheme} />
+        </Dialog>
+      )}
+      {historyOpen && (
+        <Dialog
+          title="Câu chuyện của ván cờ."
+          description={`Phòng ${room.code} · Ván ${room.round + 1}`}
+          onClose={() => setHistoryOpen(false)}
+          className="history-dialog"
+        >
+          <MoveHistory history={game.moveHistory} onExport={exportPgn} />
+        </Dialog>
+      )}
+      {shareOpen && (
+        <Dialog
+          title="Gửi bạn một lời mời."
+          description="Chọn và sao chép link bên dưới để chia sẻ."
+          onClose={() => setShareOpen(false)}
+        >
+          <label className="share-input-label" htmlFor="share-link">
+            Link phòng {room.code}
+          </label>
+          <input
+            id="share-link"
+            className="share-input"
+            readOnly
+            value={shareUrl.href}
+            onFocus={(event) => event.target.select()}
+          />
+          <p className="input-hint">Bạn chơi chỉ cần mở link và chọn “Ngồi vào bàn”.</p>
+        </Dialog>
+      )}
+      {confirmation && (
+        <Dialog
+          title={
+            confirmation === 'leave'
+              ? 'Rời bàn cờ một chút?'
+              : confirmation === 'resign'
+                ? 'Khép lại ván cờ này?'
+                : 'Cập nhật Gambit?'
+          }
+          description={
+            confirmation === 'leave'
+              ? 'Kết nối với bạn chơi sẽ đóng. Hai người có thể hẹn nhau trong một phòng mới.'
+              : confirmation === 'resign'
+                ? 'Đầu hàng sẽ ghi nhận chiến thắng cho bạn chơi. Hai người vẫn có thể mời nhau đấu lại.'
+                : 'Trang sẽ tải lại để nhận phiên bản mới. Phiên phòng được giữ trên thiết bị để thử kết nối lại; bạn có thể tải PGN trước khi cập nhật.'
+          }
+          onClose={() => setConfirmation(null)}
         >
           <div className="confirm-actions">
-            <button className="secondary-button" onClick={exportPgn}>
-              <ArrowDownToLine size={16} />
-              Lưu biên bản PGN
+            {confirmation === 'update' && game.moveHistory.length > 0 && (
+              <button className="secondary-button" onClick={exportPgn}>
+                <Download size={16} />
+                Lưu biên bản PGN
+              </button>
+            )}
+            <button
+              className="primary-button"
+              onClick={() => {
+                if (confirmation === 'leave') leave()
+                else if (confirmation === 'resign') {
+                  client.command({ kind: 'resign' })
+                  setConfirmation(null)
+                } else update.reload()
+              }}
+            >
+              {confirmation === 'leave'
+                ? 'Rời phòng'
+                : confirmation === 'resign'
+                  ? 'Xác nhận đầu hàng'
+                  : 'Cập nhật & kết nối lại'}
+              <ArrowRight size={17} />
             </button>
-            <button className="primary-button" onClick={newGame}>
-              Bắt đầu ván mới
-              <RotateCcw size={16} />
-            </button>
-            <button className="text-button" onClick={() => setConfirmReset(false)}>
-              Tiếp tục ván hiện tại
+            <button className="text-button" onClick={() => setConfirmation(null)}>
+              Ở lại bàn cờ
             </button>
           </div>
         </Dialog>
@@ -438,16 +819,44 @@ export function App() {
           onCancel={game.cancelPromotion}
         />
       )}
-      {game.isGameOver && !resultDismissed && (
+      {game.isGameOver && connected && !resultDismissed && !room.rematchBy && (
         <GameOverModal
           isCheckmate={game.isCheckmate}
           isStalemate={game.isStalemate}
           isThreefold={game.isThreefold}
           isInsufficientMaterial={game.isInsufficientMaterial}
           currentTurn={game.turn}
-          onNewGame={newGame}
+          resignationWinner={room.resignation?.winner}
+          onNewGame={requestRematch}
           onReview={() => setResultDismissed(true)}
         />
+      )}
+      {room.rematchBy && room.rematchBy !== room.myColor && connected && (
+        <Dialog
+          title="Thêm một ván nữa nhé?"
+          description={`${opponentName} mời bạn đấu lại. Hai người sẽ đổi màu quân và bắt đầu ván mới.`}
+          onClose={() => {
+            client.command({ kind: 'rematch-answer', accept: false })
+            setResultDismissed(true)
+          }}
+        >
+          <button
+            className="primary-button"
+            onClick={() => client.command({ kind: 'rematch-answer', accept: true })}
+          >
+            Nhận lời mời
+            <RotateCcw size={17} />
+          </button>
+          <button
+            className="text-button"
+            onClick={() => {
+              client.command({ kind: 'rematch-answer', accept: false })
+              setResultDismissed(true)
+            }}
+          >
+            Để lần sau nhé
+          </button>
+        </Dialog>
       )}
     </div>
   )

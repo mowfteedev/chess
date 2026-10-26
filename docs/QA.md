@@ -1,47 +1,41 @@
-# Ghi nhận bàn giao giao diện Gambit
+# Tự kiểm tra Gambit Rooms — Supabase
 
-Ngày 26/10/2026. Thay đổi được triển khai và tự kiểm tra trong working tree dựa trên commit `1917dad`; đây là tự kiểm tra của cùng người thực hiện.
+Ngày 26/10/2026. Thay đổi dựa trên `cbbbefb7bb1def659c21f02cd6249648ca038d32`; cùng người triển khai và tự kiểm, không phải review độc lập.
 
-## Tiêu chí và bằng chứng
+## Phạm vi
 
-| Tiêu chí | Kiểm chứng | Kết quả |
-| --- | --- | --- |
-| Thiết kế mới, quân vector và bố cục thích ứng | Ảnh desktop/mobile từ production preview; 6 viewport từ 320 đến 1920px; 64 ô, tỷ lệ vuông, không tràn ngang | PASS |
-| Chơi máy hoạt động liên tục | Nước đầu và lượt tiếp theo ở cả 3 độ khó; máy đi trước khi người chơi chọn đen; đi lại đúng lượt | PASS |
-| Không áp dụng nước máy đã hủy | Đi lại/đặt lại khi Worker đang khởi động; đổi độ khó giữa lượt; không kéo quân máy khi máy đang tính | PASS |
-| Giữ chức năng chơi cờ | Chơi hai người, kéo thả, lật bàn, nhập thành, bắt qua đường, phong cấp/hủy phong cấp, chiếu bí/xem lại/đi lại | PASS |
-| Biên bản và tùy chọn | Đọc nội dung file PGN tải thực; màu bàn và âm thanh giữ sau reload | PASS |
-| Bàn phím và dialog | Mũi tên/Enter để đi quân; focus quay về nút mở khi đóng; Esc thoát focus mode | PASS |
-| Kiểm tra accessibility tự động | Axe với các nhóm WCAG 2 A/AA, 2.1 AA, 2.2 AA ở 6 trạng thái sau khi hiệu ứng mở dialog hoàn tất; không ghi nhận vi phạm | PASS |
-| Hosting tại thư mục con | Phục vụ build tại `/chess/`; font tải được, máy trả lời và không có request lỗi/pageerror | PASS |
-| Build và kiểm tra hiện có | `npm test`: 5/5; `npm run test:e2e`: 21/21; E2E chạy `npm run build` trước preview | PASS |
+| Tiêu chí              | Bằng chứng                                                                                                                      | Kết quả |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| Chỉ chơi với người    | Sảnh tạo/tham gia; không có UI và module máy                                                                                    | PASS    |
+| Hai người đồng bộ     | Hai browser context, PostgreSQL/Auth/Realtime/Edge Runtime cục bộ thật; WebRTC bị chặn trong các context này                    | PASS    |
+| Hai ghế và phân quyền | Từ chối người thứ ba; hai người cùng xin ghế cuối chỉ một người được nhận; publishable key không thay thế JWT                   | PASS    |
+| Máy chủ giữ luật      | Sai lượt bị từ chối, gửi trùng chỉ áp dụng một lần, PATCH trực tiếp trạng thái bị 403                                           | PASS    |
+| Nghiệp vụ             | Cả hai màu, kéo thả, keyboard, PGN, nhập thành, bắt qua đường, phong cấp/hủy, chiếu bí, đầu hàng, đấu lại đồng thuận và đổi màu | PASS    |
+| Phục hồi              | Reload hai phía, đọc lại lịch sử từ server, đóng tab, xác nhận rời phòng, retry tạo phòng sau lỗi mạng                          | PASS    |
+| Mobile                | 320×740, 390×844, 768×1024; không tràn ngang; nút tiện ích ≥44px; bàn cờ và dialog thao tác được                                | PASS    |
+| Cache                 | Manifest chống cache, reload có version, không tự tải lại ván, entry JS bị lỗi có màn khôi phục                                 | PASS    |
+| TypeScript/luật cờ    | Frontend + server được kiểm type; `npm test` 5/5                                                                                | PASS    |
 
-Viewport đã kiểm tra: 320×740, 390×844, 768×1024, 1024×768, 1440×900 và 1920×1080. Môi trường: Chromium headless trên Linux. Test E2E nằm ở `test/e2e/game.spec.ts`; không có `pageerror` trong các ca chạy qua.
+Lần chạy cuối đạt **37/37 ca Playwright** trong 44,8 giây: 30 ca UI/trình duyệt, 1 ca HTTP auth và 6 ca protocol. `npm test` đạt 5/5; TypeScript frontend/server đều qua. CI chạy lại toàn bộ suite trên commit phát hành trước khi deploy: [GitHub Actions](https://github.com/mowfteedev/chess/actions/workflows/deploy.yml).
 
-Sáu trạng thái scanner: bàn cờ desktop, dialog hướng dẫn desktop, bàn cờ mobile, màu Rừng đêm trên mobile, chế độ Cùng bạn và chế độ tập trung trên mobile. Không ghi nhận lỗi tải tài nguyên trong lượt kiểm tra này.
+Đã tái hiện và sửa việc phản hồi hiện diện cũ ghi đè heartbeat mới. Ca gây trễ một HTTP read thật xác minh kết nối và ô đang chọn không bị trả về trạng thái cũ. Ca này cùng reload khách qua 8 lượt kiểm tra lặp; kiểm tra reload chờ chủ phòng nhận heartbeat mới trước khi đi tiếp. Ca retry tạo phòng cũng đã đỏ trước bản vá, xanh sau bản vá.
 
-## Lỗi đã xác minh và sửa
+Môi trường cục bộ: Chromium headless/Linux, stack Docker `gambit-chess-test`, API `127.0.0.1:56321`. Không dùng project production cho bộ E2E hoặc mock transport của các ca chơi cờ. Khóa môi trường test được sinh từ CLI status và nằm trong file ignored.
 
-- **Máy đứng sau nước đầu:** bản gốc chỉ ghi `1. e4` sau 1,5 giây. Đối tượng Chess bị thay đổi tại chỗ, nhưng effect máy không theo dõi thế cờ mới; cờ ref “đang nghĩ” cũng không được giải phóng khi timer bị hủy. Bản mới dùng FEN làm dependency và Worker có cleanup theo vòng đời; các ca máy/đổi độ khó/hủy nước đã qua trên production build.
-- **Kéo quân hộ máy:** đường thả quân nay kiểm tra lượt người chơi và trạng thái phong cấp/kết thúc ván, ngoài việc vô hiệu hóa draggable.
-- **Thống kê quân sau phong cấp:** đếm quân bị bắt từ lịch sử bắt quân, không suy từ chênh lệch số quân ban đầu.
-- **Focus sau dialog:** test trình duyệt đã phát hiện focus mất khi dialog bị unmount; cleanup hiện trả focus rõ ràng về phần tử đã mở.
+## Kiểm tra runtime với Supabase thật
 
-## Đo độ phản hồi
+Hai browser context riêng tại frontend phát triển đã tạo/tham gia phòng trên Supabase cloud, đồng bộ `e4`, `e5` và ghi nhận 2 nửa nước. GET health sau triển khai trả 200 với protocol 2. Không có lỗi JavaScript trong ca này.
 
-Thử cùng hàm `getBestBotMove`, mức hard, với thế cờ sau `1. e4`, theo dõi khoảng cách giữa các callback `requestAnimationFrame` trong Chromium:
+Quét Axe trên 9 trạng thái của cùng lượt chạy không ghi nhận vi phạm tự động: sảnh desktop/mobile, tạo phòng, phòng chờ, tham gia mobile, ván desktop/mobile, dialog màu bàn và biên bản mobile. Ảnh trong `docs/screenshots` được chụp từ lượt này. Đây là bằng chứng kiểm tra tự động, không phải chứng nhận WCAG hoặc thay cho thử trên thiết bị thật.
 
-| Cách chạy | Thời gian tính và chờ | Khoảng ngắt khung hình lớn nhất |
-| --- | --- | --- |
-| Hàm đồng bộ trên luồng giao diện | 625 ms | 617 ms |
-| Cùng thuật toán trong Worker | 661 ms | 17 ms |
+## Migration và triển khai
 
-Đây là một phép đo cục bộ, so sánh hai cách thực thi cùng thuật toán trong harness. Worker giữ giao diện phản hồi; kết quả không chứng minh máy tính cờ nhanh hơn. Thuật toán minimax được giữ nguyên. Dữ liệu thế cờ, lịch sử và trạng thái kết thúc cũng được memo hóa theo FEN; confetti tải khi cần.
+Đã kiểm tra project đích chưa có bảng public trước khi tạo đối tượng Gambit. `db push --dry-run` chỉ liệt kê migration `202610260001_gambit_rooms.sql`. Migration đã qua PostgreSQL cục bộ và các ca API/RLS trước khi áp dụng lên Supabase.
 
-## Giới hạn kiểm tra
+Backend được áp dụng bằng CLI có migration history, Edge Function triển khai riêng. Không đưa mật khẩu, access token hay service_role key vào frontend/GitHub repository. Frontend chỉ nhận URL và publishable key qua cấu hình public.
 
-Chưa kiểm tra bằng screen reader thực, thiết bị cảm ứng thật, Firefox hoặc Safari. Kết quả scanner không phải chứng nhận WCAG. Build và đường dẫn asset được kiểm tra cục bộ; kết quả phát hành công khai được ghi theo commit tại [GitHub Actions](https://github.com/mowfteedev/chess/actions/workflows/deploy.yml).
+## Giới hạn
 
-## Phát hành và khôi phục
+Chưa thử screen reader thực, máy cảm ứng thật, Safari/Firefox hoặc hai mạng 4G riêng biệt. Kiến trúc mới dùng HTTPS/WebSocket tới Supabase, không còn yêu cầu TURN/P2P. Phiên ẩn danh thuộc tab; mất phiên có thể mất quyền vào lại. Phòng hết hạn nhận thao tác sau 48 giờ; chưa tự purge dữ liệu. Khả năng phục vụ lâu dài phụ thuộc quota và trạng thái project Supabase.
 
-Địa chỉ công khai: [mowfteedev.github.io/chess](https://mowfteedev.github.io/chess/). Push vào `main` kích hoạt workflow build và deploy hiện có. Bản ổn định trước thay đổi này là `1917dade2bd04bcbbd6ab7a3a5e854dc8b898c46`; khi cần khôi phục, revert commit giao diện và push commit revert để pipeline phát hành lại. Không có migration hoặc dữ liệu máy chủ cần khôi phục.
+Không cần migration phá hủy dữ liệu để quay lại giao diện cũ; giữ bảng khi rollback. Xem [ADR](ARCHITECTURE.md).

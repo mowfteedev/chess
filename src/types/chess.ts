@@ -14,9 +14,6 @@ export interface BoardThemeColors {
   highlightDark: string
 }
 
-export type GameMode = 'pass-and-play' | 'vs-bot'
-export type BotDifficulty = 'easy' | 'medium' | 'hard'
-
 export interface CapturedPieceGroup {
   type: PieceType
   color: Color

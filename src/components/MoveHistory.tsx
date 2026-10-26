@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import { Download, Swords } from 'lucide-react'
 import type { MoveLogItem } from '../types/chess'
 
@@ -9,6 +9,7 @@ export function MoveHistory({
   history: MoveLogItem[]
   onExport: () => void
 }) {
+  const headingId = useId()
   const scrollRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
@@ -19,10 +20,10 @@ export function MoveHistory({
     black: history[index * 2 + 1],
   }))
   return (
-    <section className="panel history-panel" aria-labelledby="history-heading">
+    <section className="panel history-panel" aria-labelledby={headingId}>
       <div className="panel-heading">
         <div className="history-title">
-          <h2 id="history-heading">Nước đi</h2>
+          <h2 id={headingId}>Nước đi</h2>
           <span className="count-badge" data-testid="move-count">
             {history.length}
           </span>

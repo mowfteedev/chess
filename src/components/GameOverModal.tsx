@@ -9,6 +9,7 @@ interface GameOverModalProps {
   isThreefold: boolean
   isInsufficientMaterial: boolean
   currentTurn: Color
+  resignationWinner?: Color
   onNewGame: () => void
   onReview: () => void
 }
@@ -19,6 +20,7 @@ export function GameOverModal({
   isThreefold,
   isInsufficientMaterial,
   currentTurn,
+  resignationWinner,
   onNewGame,
   onReview,
 }: GameOverModalProps) {
@@ -43,25 +45,29 @@ export function GameOverModal({
       active = false
     }
   }, [isCheckmate])
-  const title = isCheckmate
-    ? `Quân ${currentTurn === 'w' ? 'đen' : 'trắng'} chiến thắng.`
-    : 'Một ván cờ cân sức.'
-  const description = isCheckmate
-    ? 'Chiếu bí! Một nước đi đẹp để khép lại ván đấu.'
-    : isStalemate
-      ? 'Hòa do hết nước đi hợp lệ dù vua không bị chiếu.'
-      : isThreefold
-        ? 'Hòa vì cùng một thế cờ đã xuất hiện ba lần.'
-        : isInsufficientMaterial
-          ? 'Hòa vì cả hai bên không còn đủ quân để chiếu bí.'
-          : 'Ván đấu hòa theo luật 50 nước.'
+  const title = resignationWinner
+    ? `Quân ${resignationWinner === 'w' ? 'trắng' : 'đen'} chiến thắng.`
+    : isCheckmate
+      ? `Quân ${currentTurn === 'w' ? 'đen' : 'trắng'} chiến thắng.`
+      : 'Một ván cờ cân sức.'
+  const description = resignationWinner
+    ? 'Ván đấu kết thúc bằng đầu hàng. Cảm ơn nhau vì một ván cờ hay.'
+    : isCheckmate
+      ? 'Chiếu bí! Một nước đi đẹp để khép lại ván đấu.'
+      : isStalemate
+        ? 'Hòa do hết nước đi hợp lệ dù vua không bị chiếu.'
+        : isThreefold
+          ? 'Hòa vì cùng một thế cờ đã xuất hiện ba lần.'
+          : isInsufficientMaterial
+            ? 'Hòa vì cả hai bên không còn đủ quân để chiếu bí.'
+            : 'Ván đấu hòa theo luật 50 nước.'
   return (
     <Dialog title={title} description={description} onClose={onReview} className="result-dialog">
       <div className="result-icon">
         {isCheckmate ? <Crown size={35} /> : <Handshake size={35} />}
       </div>
       <button className="primary-button" onClick={onNewGame}>
-        Thêm một ván nữa
+        Mời bạn đấu lại
         <ArrowRight size={18} />
       </button>
       <button className="text-button" onClick={onReview}>

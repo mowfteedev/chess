@@ -5,14 +5,80 @@
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#141b18" />
-    <title>Gambit — Đến lượt bạn.</title>
+    <title>Gambit — Hẹn nhau một ván cờ.</title>
     <meta
       name="description"
-      content="Gác lại ồn ào. Thưởng thức một ván cờ cùng Gambit: đấu với máy ở ba cấp độ hoặc chơi cùng bạn trên một thiết bị."
+      content="Tạo phòng, gửi lời mời và chơi cờ trực tiếp với bạn bè. Hai người, hai thiết bị, một bàn cờ — cùng Gambit."
     />
+    <script>
+      window.addEventListener(
+        'error',
+        function (event) {
+          if (
+            !(event.target instanceof HTMLScriptElement) &&
+            !(event.target instanceof HTMLLinkElement)
+          )
+            return
+          function recover() {
+            var panel = document.getElementById('boot-recovery')
+            var link = document.getElementById('boot-reload')
+            if (!panel || !link) return
+            var url = new URL(location.href)
+            url.searchParams.set('v', Date.now().toString())
+            link.href = url.href
+            panel.hidden = false
+          }
+          if (document.readyState === 'loading')
+            document.addEventListener('DOMContentLoaded', recover, { once: true })
+          else recover()
+        },
+        true,
+      )
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <div
+      id="boot-recovery"
+      hidden
+      role="alert"
+      style="
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: #141b18;
+        color: #eceddd;
+        padding: 32px;
+        font:
+          16px/1.8 system-ui,
+          sans-serif;
+      "
+    >
+      <h1
+        style="
+          font:
+            32px/1.3 Georgia,
+            serif;
+        "
+      >
+        Mình tải lại bàn cờ nhé.
+      </h1>
+      <p>Một số tệp chưa tải được. Kiểm tra mạng hoặc mở lại bản mới bằng nút bên dưới.</p>
+      <a
+        id="boot-reload"
+        href="./"
+        style="
+          display: inline-block;
+          margin-top: 20px;
+          padding: 12px 20px;
+          border-radius: 5px;
+          background: #c0dda5;
+          color: #24391b;
+          text-decoration: none;
+        "
+        >Tải lại Gambit</a
+      >
+    </div>
     <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
